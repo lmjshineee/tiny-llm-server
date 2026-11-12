@@ -52,3 +52,21 @@ jobs:
           }
           console.log('demo smoke test passed (simulated)');
           "
+
+      - name: Prefix cache smoke test (simulated)
+        run: |
+          pnpm demo --prefix-cache --json > prefix-results.json
+          node -e "
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('prefix-results.json', 'utf8'));
+          if (report.simulated !== true) throw new Error('demo must be marked simulated');
+          for (const run of report.runs) {
+            if (run.summary.completedRequests !== run.summary.totalRequests) {
+              throw new Error('prefix demo run did not complete every request');
+            }
+            if (!run.summary.prefixCache || run.summary.prefixCache.hitTokens <= 0) {
+              throw new Error('expected prefix hits in every run');
+            }
+          }
+          console.log('prefix cache smoke test passed (simulated)');
+          "

@@ -15,3 +15,6 @@ coverage/
 # generated demo output
 results.json
 demo-results.json
+
+# generated CI artifact
+prefix-results.json

@@ -1,6 +1,7 @@
 # Architecture
 
-Status: Phase 1 (working simulator + CLI). The web visualizer and prefix cache are planned, not implemented.
+Status: Phase 2 (working simulator, CLI, and retained prefix cache). The benchmark harness and
+web visualizer are planned, not implemented.
 
 ## 1. Purpose and scope
 
@@ -14,13 +15,15 @@ The lab is designed to answer questions such as:
 - Why does naive FCFS suffer from head-of-line blocking?
 - How much do iteration-level batching and chunked prefill help throughput and TTFT?
 - How does KV-cache capacity bound the number of concurrent requests?
+- How much prefill work do reusable prompt prefixes save, and what memory do they retain?
 - How do batch size, token budget, and prefill chunk size trade off TTFT against TPOT?
 
 ### What is simulated
 
 - Every latency, throughput, and cache statistic comes from a synthetic cost model.
 - No transformer weights are loaded. No GPU, CUDA, Metal, or Ascend runtime is used.
-- The workload is synthetic: Poisson arrivals and clamped-normal token counts.
+- The workload is synthetic: Poisson arrivals, clamped-normal token counts, and declared
+  shared-prefix identities (there is no real prompt text to hash).
 
 ### What is real
 
@@ -37,7 +40,7 @@ The lab is designed to answer questions such as:
 | Reproducibility | Seeded PRNG, no wall-clock reads, deterministic tie-breaking. |
 | Testability | Pure scheduler functions; engine validates every plan. |
 | Honest reporting | CLI and docs label all output as simulated. No fabricated hardware results. |
-| Incremental delivery | Phase 1 stays small; each later milestone adds one subsystem. |
+| Incremental delivery | Each phase stays small; each later milestone adds one subsystem. |
 
 ## 3. Component map
 
@@ -46,11 +49,11 @@ flowchart LR
   W["Seeded workload generator<br/>(Poisson arrivals, token distributions)"]
   E["Event-driven simulator<br/>virtual clock + event queue"]
   S["Scheduler<br/>FCFS / continuous batching"]
-  K["Paged KV cache<br/>reserve + lazy block allocation"]
-  M["Metrics<br/>TTFT / TPOT / E2E / P95"]
+  K["Paged KV cache<br/>reservations + lazy blocks +<br/>ref-counted prefix blocks"]
+  M["Metrics<br/>TTFT / TPOT / E2E / P95 + prefix hits"]
   C["CLI comparison<br/>same workload, both policies"]
   U["React visualizer<br/>(Phase 4)"]
-  P["Prefix cache<br/>(Phase 2)"]
+  P["Prefix cache<br/>(Phase 2: retention + LRU)"]
 
   W --> E
   E -- "SchedulingContext" --> S
@@ -61,7 +64,7 @@ flowchart LR
   M --> C
   M -. "SimulationResult" .-> U
   E -. "step trace" .-> U
-  P -. "shared blocks + hit stats" .-> K
+  P --> K
 ```
 
 The core (`src/core`) has no DOM, React, or Node-only dependencies. The CLI is a thin adapter.
@@ -206,44 +209,90 @@ higher throughput. This trade-off is intentional and visible.
 - A request reserves `ceil((promptTokens + maxNewTokens) / blockSize)` blocks at admission.
 - Blocks are appended lazily as tokens are computed. A block is physically owned only when a
   sequence position first needs it.
-- On completion (or error), all blocks and the reservation are released.
+- A request may declare a synthetic prefix identity (`prefix.key`) and a prefix length. Whole
+  cached blocks of that prefix are shared by reference; the cache lookup happens at admission.
+- On completion, exclusive blocks are released. Prefix blocks that became cacheable are
+  retained while still valid, even after their last owner finishes.
 
 ### Accounting model
 
 | Field | Meaning |
 | --- | --- |
-| `allocatedBlocks` | Blocks holding real tokens right now. |
-| `reservedBlocks` | Worst-case blocks promised to active requests. Always ≥ allocated. |
+| `allocatedBlocks` | Unique physical blocks referenced by at least one active request. |
+| `cachedBlocks` | Retained prefix blocks with ref-count 0 (idle, evictable). |
+| `physicalBlocks` | `allocatedBlocks + cachedBlocks`: the real memory footprint. |
+| `logicalBlocks` | Sum of active block-table lengths; shared blocks count once per request. |
+| `sharedBlocks` | Active physical blocks referenced by more than one request. |
+| `reservedBlocks` | Worst-case blocks promised to active requests. |
 | `availableBlocks` | `totalBlocks - reservedBlocks`; the headroom admission control uses. |
-| `freeAllocatedBlocks` | `totalBlocks - allocatedBlocks`; physically unused right now. |
-| `peakAllocatedBlocks` | High-water mark of the real footprint. |
-| `peakReservedBlocks` | High-water mark of reservations. |
+| `freeAllocatedBlocks` | `totalBlocks - physicalBlocks`; physically free right now. |
+| `peak*` | High-water marks used by the summary and future UI. |
 
-Invariants (checked by `cache.validate()` in tests and property tests):
+Invariants (checked by `cache.validate()` in tests, property tests, and at the end of every
+simulation):
 
-- Every block ID is in range and owned by at most one request.
-- A block is either free or allocated, never both.
+- Every block ID is in range and free blocks are disjoint from used blocks.
+- Ref-counts equal the number of active request tables referencing each block.
+- A shared logical block maps to exactly one physical block.
+- Cached idle blocks are tracked in the idle set; active/non-cached blocks are not.
+- Prefix-index keys point only at cached blocks and agree with per-block metadata.
+- Every cached block has a valid key; every prefix-index key has exactly one block.
 - `allocatedTokens <= reservedTokens` per request.
 - Block-table length equals `ceil(allocatedTokens / blockSize)`.
 - Sum of per-request reservations equals the cache counter and never exceeds capacity.
+- `physicalBlocks = allocatedBlocks + cachedBlocks <= totalBlocks`.
+
+### Prefix cache (Phase 2)
+
+`PrefixReservation` carries a synthetic `key` and a requested token count. Because the
+simulator has no token text, the key stands in for a real content hash. The workload generator
+creates keys such as `prefix-2`; a real implementation would hash token blocks (optionally
+chaining the parent hash) and compare those hashes.
+
+- **Matching:** only whole blocks match. The declared prefix length is floored to a multiple of
+  `blockSize`. Lookup walks block indices from zero and stops at the first miss, so a hit is
+  always a contiguous prefix chain.
+- **Admission cap:** the engine caps hits at `promptTokens - 1` (then floors to a block). This
+  guarantees at least one prompt token remains, so the normal prefill-first-token path and
+  `maxNewTokens = 1` edge cases stay uniform. It under-uses a prefix that covers the entire
+  prompt; this is an explicit simplification.
+- **Planned intents are clamped:** schedulers plan before the cache lookup. If a hit reduces
+  the remaining prompt, the engine clamps that request's prefill intent to the suffix and
+  recomputes the step latency from the tokens actually computed.
+- **Registration:** as prefill fills a block wholly inside the declared prefix, that block is
+  marked cached and inserted into the prefix index. If the key is already mapped to another
+  block, the new block stays exclusive to avoid duplicate cache entries.
+- **Retention and eviction:** finishing a request releases references. A prefix block with no
+  remaining references becomes idle and stays cached; exclusive blocks are freed. When an
+  allocation needs a block and the free list is empty, the least-recently-used *idle cached*
+  block is evicted. Active shared blocks are never candidates.
+- **Reservations do not shrink:** admission still reserves the full worst-case sequence. Hits
+  reduce prefill compute and physical duplication, but not admission headroom. This keeps the
+  deadlock-freedom proof simple. Prefix-aware reservation accounting is a later refinement.
+- **Duplicate work is possible:** if two requests both miss and compute the same prefix before
+  either registers the blocks, one of the duplicate blocks is not inserted into the index and
+  is freed when its owner finishes.
 
 ### Why reserve the worst case?
 
 Lazy allocation alone can deadlock: if every running sequence needs a new block at the same
-step and the cache is full, none can finish, so none can release. Phase 1 avoids this with a
-per-request worst-case reservation, which guarantees every admitted request can run to
-completion. The cost is reduced admission concurrency: reserved-but-not-yet-used blocks cannot
-be promised to another request.
+step and the cache is full, none can finish, so none can release. The simulator avoids this
+with a per-request worst-case reservation, which guarantees every admitted request can run to
+completion. Prefix sharing is layered on top without weakening that guarantee: shared blocks
+count toward each owner's reservation, which over-counts them but keeps admission safe.
 
-Preemption (evicting a running request and recomputing later), exact admission with stalling,
-and block sharing are deliberately deferred. The allocator is small enough to extend without
-rewriting the engine.
+The cost is reduced admission concurrency: reserved-but-not-yet-used blocks cannot be promised
+to another request. Precise prefix-aware reservations would require accounting for blocks that
+are already active versus merely retained, plus preemption or stalling.
+
+Preemption (evicting a running request and recomputing later), swapping, and exact admission
+with stalling remain deliberately deferred.
 
 ### Why paging at all if reservations are worst-case?
 
 Reservations are admission bookkeeping; physical allocation is still paged and lazy. Paging
-avoids contiguous-growth requirements, supports per-request block tables, and is the structure
-prefix sharing will need. It also gives the UI a natural visualization unit: a block map.
+avoids contiguous-growth requirements, supports per-request block tables, enables ref-counted
+prefix sharing, and gives the UI a natural visualization unit: a block map.
 
 ## 7. Synthetic cost model
 
@@ -271,10 +320,10 @@ while 16 single-request steps cost `16 × 19.4 = 310.4 ms`. This sublinear decod
 the main reason continuous batching wins in the simulation.
 
 **These values are illustrative, not measurements.** They are chosen to be in a plausible
-order of magnitude for a 7B-class 4-bit model and to make scheduling effects visible. They do
-not model memory bandwidth precisely, attention quadratic costs, prefix-cache hits, network
-latency, or hardware variance. Replace them with measured traces before drawing performance
-conclusions.
+order of magnitude for a 7B-class 4-bit model and to make scheduling effects visible. Prefix
+hits do reduce the prefill token count, but the model does not include cache-lookup/hash cost,
+memory-bandwidth contention, attention quadratic effects, network latency, or hardware
+variance. Replace the model with measured traces before drawing performance conclusions.
 
 ## 8. Metrics
 
@@ -288,6 +337,13 @@ conclusions.
 | Makespan | `max(finishedAt) - min(arrivalTime)` |
 | P50 / P95 / P99 | Linear interpolation over the sorted sample |
 | Avg decode batch | Mean decode sequences over steps that decoded at least one token |
+| Prefix hit tokens | Prompt tokens served from whole cached prefix blocks |
+| Prefix token hit rate | `sum(prefixHitTokens) / sum(promptTokens)` over completed requests |
+| Prefix request hit rate | Requests with at least one prefix block reused / completed requests |
+| KV physical peak | Peak `allocatedBlocks + cachedBlocks`; sharing counted once |
+| KV logical-active peak | Peak sum of active block-table lengths; sharing counted per request |
+| KV shared peak | Peak active blocks referenced by more than one request |
+| KV retained peak | Peak idle cached blocks held for future reuse |
 | KV peak | High-water marks from the allocator |
 
 The throughput denominator includes ramp-up and drain time. Workloads with different arrival
@@ -300,20 +356,23 @@ rates are therefore not directly comparable unless makespan semantics are consid
 | TypeScript core, single package | Python core + TS UI; pnpm monorepo | Shared types with the future React UI, zero runtime dependencies, one install. Not a real serving engine. |
 | Event-driven clock | Fixed 1 ms ticks | Exact step boundaries and instant idle jumps; slightly more bookkeeping. |
 | Scheduler returns a plan | Scheduler mutates engine state | Easy to unit-test and validate; plans can be rejected before mutation. |
-| Worst-case KV reservation | Stalling, preemption, exact reservation | Deadlock-free and deterministic, but limits concurrency. Preemption is a later milestone. |
+| Worst-case KV reservation | Stalling, preemption, exact reservation | Deadlock-free and deterministic, but limits concurrency. Preemption and prefix-aware admission are later milestones. |
+| Retained prefix cache | No retention; active-request sharing only | Hits work across idle gaps and show real memory retention; adds ref-counts, LRU eviction, and prefix-index invariants. |
+| Synthetic prefix keys | Real token hashes / radix tree | Reproducible without prompt text; not a content-addressed cache. Real hashing is an extension. |
 | Chunked prefill | Prefill whole prompts only | Keeps per-step latency and token budget bounded; introduces prefill/decode interference. |
 | Analytical cost model | Microbenchmark traces | Runs anywhere, reproducible, no hardware claims. Must be replaced for quantitative conclusions. |
 | FIFO admission only | Shortest-job-first, prefix-aware | Keeps FCFS vs batching comparison controlled; advanced policies are extensions. |
 
 ## 10. Extension points
 
-### Prefix cache (next)
+### Prefix-aware admission and real hashing
 
-- Hash block contents (optionally chained with the parent block hash).
-- Ref-count shared blocks; a request's block table may reference shared blocks.
-- Add `prefixHitTokens` / `prefixHitBlocks` to request outcomes and summaries.
-- Keep the same `CacheView` contract; admission uses physical plus shared-block accounting.
-- Test eviction, ref-counts, and hit-rate edge cases before wiring the UI.
+- Hash real token blocks (optionally chained with the parent hash) instead of synthetic keys.
+- Relax full-sequence reservations for prefix hits by distinguishing active shared blocks,
+  evictable retained blocks, and genuinely exclusive future allocations.
+- Model cache lookup and hashing latency; currently a hit is free beyond skipped prefill.
+- Add preemption so an over-committed cache can reclaim active blocks deterministically.
+- Expose per-block metadata (key, ref-count, last-used, cached) in a trace for the UI.
 
 ### Benchmark harness
 
@@ -337,13 +396,15 @@ new interfaces JSON-serializable so the browser can consume them without adapter
 ## 11. Known limitations
 
 - No real model execution, GPU/NPU, CUDA, Metal, or Ascend integration.
-- No preemption, swapping, or eviction; KV reservation is worst-case.
-- No prefix sharing yet.
+- No preemption, swapping, or failure injection; KV admission remains worst-case.
+- Prefix cache keys are synthetic identifiers, not hashes of real tokens; content collisions and
+  chained-hash semantics are not modelled.
+- Prefix hits reduce prefill tokens but do not relax admission headroom. Two concurrent misses
+  can duplicate work for the same prefix.
+- Prefix-cache lookup, hashing, and block-table setup are not charged any latency.
 - No speculative decoding, priorities, deadlines, or multi-tenant fairness.
 - Cost model ignores attention length effects, memory-bandwidth contention, and hardware
   variance.
-- Synthetic prompts have no content; "prefix reuse" cannot be meaningful until Phase 2 adds
-  shared prefixes to the workload generator.
 - Single-node, single-model, homogeneous requests.
 
 ## 12. References

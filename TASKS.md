@@ -68,30 +68,55 @@ Reported demo numbers are **simulated**. See README for the captured output and 
 - No prefix cache, preemption, real model execution, React UI, or benchmark matrix.
 - No hardware benchmark claims.
 
-## M2 — Optional Prefix Cache ⏳
+## M2 — Optional Prefix Cache ✅
 
-Goal: share identical prompt prefixes at block granularity and expose hit/memory statistics.
+Goal: share identical prompt prefixes at whole-block granularity, retain blocks beyond their
+owners, and expose hit/memory statistics.
 
-### Design tasks
+### Delivered
 
-- [ ] Add content-addressed block hashing (hash of block tokens plus parent hash to encode
-      position in the sequence).
-- [ ] Add ref-counted shared blocks to the allocator while preserving `allocate/free` semantics.
-- [ ] Track per-request `sharedBlocks`, `prefixHitTokens`, and `prefixHitBlocks`.
-- [ ] Extend `CacheView`/`CacheStats` with shared, unique, and saved-memory counters.
-- [ ] Add a workload option for shared prefixes (e.g., a pool of prefixes with per-request
-      reuse probability) so hits are meaningful and reproducible.
-- [ ] Report hit rate, hit tokens, peak physical vs logical KV usage, and saved prefill tokens.
-- [ ] Keep cache hits visible in the CLI summary and future UI.
+- [x] Synthetic whole-block content identity (`prefix.key` + token count) because the simulator
+      has no real token text. Optional per request.
+- [x] Ref-counted shared blocks in the allocator while preserving reserve/append/free semantics.
+- [x] Retention after the last owner finishes; LRU eviction of idle cached blocks on demand.
+- [x] Per-request `prefixHitTokens`; request/token hit rates in summaries.
+- [x] Cache accounting: cached, physical, logical-active, shared, and peak counters; expanded
+      invariant checker; validation at the end of every simulation.
+- [x] Workload prefix pool, target length, reuse probability, and a separate RNG stream so the
+      base arrivals/token counts match an equivalent prefix-off workload.
+- [x] Engine lookup at admission, prefill skipping for hit blocks, prefill-intent clamping, and
+      a `prompt - 1` hit cap that keeps the normal prefill-first-token path.
+- [x] CLI flags (`--prefix-cache`, `--prefix-pool`, `--prefix-tokens`, `--prefix-prob`) and
+      prefix hit/memory output.
+- [x] Unit, engine, workload, metric, and fast-check property coverage for sharing, free,
+      retention, contiguous hits, and eviction.
 
-### Tests / acceptance
+### Verification record (2026-11-12, Phase 2)
 
-- [ ] Two requests with the same 256-token prefix share physical blocks; ref counts stay correct.
-- [ ] Divergent suffixes do not share blocks.
-- [ ] Freeing one request does not evict blocks still referenced by another.
-- [ ] Property test: physical allocated ≤ logical tokens; no double free; ref counts balanced.
-- [ ] Same seed produces identical hit statistics.
-- [ ] CLI before/after comparison, labeled simulated.
+| Check | Command | Result |
+| --- | --- | --- |
+| Types | `pnpm typecheck` | pass |
+| Tests | `pnpm test` | 10 files, 73 tests, all pass |
+| Default demo | `pnpm demo` | both policies complete 80/80; prefix stats zero |
+| Prefix demo | `pnpm demo --prefix-cache` | 58/80 hit requests; 14,848/41,045 prompt tokens (36.2%) |
+| JSON API | `pnpm demo --json` | valid JSON; `simulated: true`; summaries include prefix stats |
+| CI workflow | `.github/workflows/ci.yml` | includes default + prefix smoke tests; not run on GitHub (no remote) |
+
+Commits:
+- `feat: add retained prefix cache and shared-prefix workload`
+- `test: cover prefix sharing, eviction, and hit metrics`
+- `docs: document prefix cache and update Phase 2 status`
+
+All reported numbers are **simulated**. See README for the captured example.
+
+### Honest simplifications
+
+- Keys are synthetic content identities, not hashes of real prompt tokens.
+- Admission still reserves the full worst-case sequence. Prefix hits save prefill work and
+  physical duplication, not admission headroom.
+- A prefix that covers the whole prompt leaves one block to recompute.
+- Concurrent misses on the same prefix can duplicate work.
+- Cache lookup/hash latency is not charged; eviction is demand-driven, not background.
 
 ## M3 — Benchmark Harness ⏳
 
@@ -128,7 +153,7 @@ without the disclaimer.
 - [ ] Coverage thresholds and CI reporting.
 - [ ] Optional ESLint/Prettier decision and formatting check.
 - [ ] Node 22/24 CI matrix (or a documented minimum-version test).
-- [ ] More property tests: event ordering, plan validity, prefix ref-counts, metrics.
+- [ ] More property tests: event ordering, plan validity, and metrics edge cases.
 - [ ] Performance guard for large simulations (streaming traces / bounded memory).
 - [ ] CONTRIBUTING, issue templates, and release notes.
 - [ ] Document cost-model assumptions and how to replace them with measured traces.
@@ -138,7 +163,8 @@ without the disclaimer.
 - ⛔ Real GPU/ANE/CUDA/Ascend execution or hardware benchmark claims.
 - ⛔ Distributed serving, multi-node, tensor/pipeline parallelism.
 - ⛔ Speculative decoding, constrained decoding, multi-model routing.
-- ☐ Preemption/swapping and exact KV admission (revisit after prefix cache).
+- ☐ Preemption/swapping and prefix-aware KV admission.
+- ☐ Real token-content hashing; charge cache lookup/hash latency; avoid duplicate concurrent misses.
 - ☐ Priority/deadline/SLA-aware scheduling.
 
 ## Definition of done (every milestone)
@@ -154,4 +180,7 @@ without the disclaimer.
 - `chore: scaffold TypeScript simulation workspace`
 - `feat: add event-driven scheduler simulator and paged KV cache`
 - `test: cover scheduler, KV, and simulation invariants`
-- `docs: add architecture, roadmap, README, and CI` (this file)
+- `docs: add architecture, roadmap, README, and CI`
+- `feat: add retained prefix cache and shared-prefix workload`
+- `test: cover prefix sharing, eviction, and hit metrics`
+- `docs: document prefix cache and update Phase 2 status`

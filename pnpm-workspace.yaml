@@ -1,0 +1,4 @@
+# pnpm 12 reads install/build policy settings from this file,
+# even though this repository is a single package.
+allowBuilds:
+  esbuild: true

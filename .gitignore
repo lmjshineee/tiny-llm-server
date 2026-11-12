@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+coverage/
+*.tsbuildinfo
+
+# local tooling
+.DS_Store
+*.log
+.vite/
+
+# generated demo output
+results.json
+demo-results.json

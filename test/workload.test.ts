@@ -63,6 +63,56 @@ describe('generateWorkload', () => {
     }
   })
 
+  it('adds deterministic shared-prefix metadata without changing base requests', () => {
+    const base = {
+      numRequests: 30,
+      seed: 9,
+      arrivalRatePerSecond: 2,
+      promptTokens: { mean: 100, stddev: 20, min: 32, max: 160 },
+      outputTokens: { mean: 20, stddev: 4, min: 4, max: 32 },
+    }
+    const off = generateWorkload(createWorkloadConfig(base))
+    const config = createWorkloadConfig({
+      ...base,
+      prefix: { enabled: true, poolSize: 3, tokens: 64, requestProbability: 1 },
+    })
+    const on = generateWorkload(config)
+
+    // Prefix assignment uses a separate RNG stream, so A/B workloads match exactly.
+    expect(
+      on.map((request) => ({
+        id: request.id,
+        arrivalTime: request.arrivalTime,
+        promptTokens: request.promptTokens,
+        maxNewTokens: request.maxNewTokens,
+      })),
+    ).toEqual(off)
+    expect(on).toEqual(generateWorkload(config))
+
+    const keys = new Set(on.map((request) => request.prefix?.key))
+    expect(keys.size).toBeLessThanOrEqual(3)
+    for (const request of on) {
+      expect(request.prefix).toBeDefined()
+      expect(request.prefix!.tokens).toBe(Math.min(64, request.promptTokens))
+      expect(request.prefix!.key).toMatch(/^prefix-[0-2]$/)
+    }
+  })
+
+  it('keeps prefix metadata off by default and validates its config', () => {
+    const requests = generateWorkload(createWorkloadConfig({ numRequests: 5 }))
+    for (const request of requests) expect(request.prefix).toBeUndefined()
+
+    expect(() => createWorkloadConfig({ prefix: { enabled: true, poolSize: 0 } })).toThrow(
+      WorkloadConfigError,
+    )
+    expect(() => createWorkloadConfig({ prefix: { enabled: true, tokens: 0 } })).toThrow(
+      WorkloadConfigError,
+    )
+    expect(() =>
+      createWorkloadConfig({ prefix: { enabled: true, requestProbability: 1.1 } }),
+    ).toThrow(WorkloadConfigError)
+  })
+
   it('rejects invalid workload configs', () => {
     expect(() => createWorkloadConfig({ numRequests: 0 })).toThrow(WorkloadConfigError)
     expect(() => createWorkloadConfig({ arrivalRatePerSecond: 0 })).toThrow(WorkloadConfigError)

@@ -163,6 +163,68 @@ describe('runSimulation / continuous batching', () => {
     expect(result.steps.map((step) => step.startMs)).toEqual([0, 5.5])
   })
 
+  it('reuses a shared prefix while the owner is still active, reducing prefill work', () => {
+    const result = runWith(
+      [
+        {
+          id: 'a',
+          arrivalTime: 0,
+          promptTokens: 12,
+          maxNewTokens: 2,
+          prefix: { key: 'sys', tokens: 8 },
+        },
+        {
+          id: 'b',
+          arrivalTime: 5,
+          promptTokens: 12,
+          maxNewTokens: 2,
+          prefix: { key: 'sys', tokens: 8 },
+        },
+      ],
+      new ContinuousBatchingScheduler(),
+      {
+        maxBatchSize: 2,
+        maxNumBatchedTokens: 16,
+        prefillChunkSize: 12,
+      },
+    )
+
+    expect(result.requests[0]?.prefixHitTokens).toBe(0)
+    expect(result.requests[1]?.prefixHitTokens).toBe(8)
+    expect(result.requests[1]?.timestamps.admittedAt).toBe(13.5)
+    expect(result.requests[1]?.timestamps.firstTokenAt).toBe(22)
+    expect(result.requests[1]?.ttftMs).toBe(17)
+    expect(result.steps[1]).toMatchObject({
+      admitted: ['b'],
+      prefilled: [{ requestId: 'b', tokens: 4 }],
+      decoded: ['a'],
+      prefillTokens: 4,
+      decodeTokens: 1,
+    })
+    expect(result.summary.prefixCache).toEqual({
+      hitRequests: 1,
+      totalRequests: 2,
+      hitTokens: 8,
+      totalPromptTokens: 24,
+      requestHitRate: 0.5,
+      tokenHitRate: 8 / 24,
+    })
+    expect(result.summary).toMatchObject({
+      kvPeakAllocatedBlocks: 6,
+      kvPeakPhysicalBlocks: 6,
+      kvPeakLogicalBlocks: 8,
+      kvPeakSharedBlocks: 2,
+      kvPeakCachedBlocks: 2,
+    })
+    expect(result.cache).toMatchObject({
+      allocatedBlocks: 0,
+      reservedBlocks: 0,
+      cachedBlocks: 2,
+      physicalBlocks: 2,
+      logicalBlocks: 0,
+    })
+  })
+
   it('is deterministic for a seeded workload and differs from FCFS', () => {
     const requests = generateWorkload(
       createWorkloadConfig({
@@ -184,6 +246,45 @@ describe('runSimulation / continuous batching', () => {
     expect(first.summary.throughputRequestsPerSecond).toBeGreaterThan(
       fcfs.summary.throughputRequestsPerSecond,
     )
+  })
+})
+
+describe('runSimulation / prefix retention', () => {
+  it('hits a prefix retained after the previous owner finished', () => {
+    const result = runWith(
+      [
+        {
+          id: 'a',
+          arrivalTime: 0,
+          promptTokens: 12,
+          maxNewTokens: 2,
+          prefix: { key: 'sys', tokens: 8 },
+        },
+        {
+          id: 'b',
+          arrivalTime: 20,
+          promptTokens: 12,
+          maxNewTokens: 2,
+          prefix: { key: 'sys', tokens: 8 },
+        },
+      ],
+      new FcfsScheduler(),
+      {
+        maxBatchSize: 2,
+        maxNumBatchedTokens: 16,
+        prefillChunkSize: 12,
+      },
+    )
+
+    // A pays the full prefill; B reuses two retained blocks (8 tokens).
+    expect(result.requests[0]?.ttftMs).toBe(13.5)
+    expect(result.requests[1]?.prefixHitTokens).toBe(8)
+    expect(result.requests[1]?.timestamps.admittedAt).toBe(20)
+    expect(result.requests[1]?.ttftMs).toBe(5.5)
+    expect(result.summary.prefixCache.hitRequests).toBe(1)
+    expect(result.summary.prefixCache.tokenHitRate).toBeCloseTo(1 / 3)
+    expect(result.cache.cachedBlocks).toBe(2)
+    expect(result.cache.allocatedBlocks).toBe(0)
   })
 })
 
@@ -260,6 +361,38 @@ describe('engine guards and plan validation', () => {
         kv: { blockSize: 4, totalBlocks: 2 },
       }),
     ).toThrow(RequestTooLargeError)
+  })
+
+  it('rejects invalid prefix metadata', () => {
+    expect(() =>
+      runWith(
+        [
+          {
+            id: 'a',
+            arrivalTime: 0,
+            promptTokens: 4,
+            maxNewTokens: 2,
+            prefix: { key: '', tokens: 4 },
+          },
+        ],
+        new FcfsScheduler(),
+      ),
+    ).toThrow(RequestValidationError)
+
+    expect(() =>
+      runWith(
+        [
+          {
+            id: 'a',
+            arrivalTime: 0,
+            promptTokens: 4,
+            maxNewTokens: 2,
+            prefix: { key: 'p', tokens: 8 },
+          },
+        ],
+        new FcfsScheduler(),
+      ),
+    ).toThrow(RequestValidationError)
   })
 
   it('rejects invalid and duplicate request specs', () => {

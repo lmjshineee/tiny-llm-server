@@ -8,6 +8,7 @@ function outcome(overrides: Partial<RequestOutcome> & Pick<RequestOutcome, 'id'>
     promptTokens: 4,
     maxNewTokens: 2,
     outputTokens: 2,
+    prefixHitTokens: 0,
     timestamps: {
       arrivedAt: 0,
       admittedAt: 0,
@@ -29,8 +30,16 @@ const CACHE: CacheStats = {
   allocatedBlocks: 0,
   reservedBlocks: 0,
   availableBlocks: 10,
+  cachedBlocks: 0,
+  physicalBlocks: 0,
+  logicalBlocks: 0,
+  sharedBlocks: 0,
   freeAllocatedBlocks: 10,
   peakAllocatedBlocks: 6,
+  peakCachedBlocks: 0,
+  peakPhysicalBlocks: 6,
+  peakLogicalBlocks: 8,
+  peakSharedBlocks: 2,
   peakReservedBlocks: 8,
   activeRequests: 0,
 }
@@ -181,8 +190,21 @@ describe('summarizeOutcomes', () => {
       makespanMs: 250,
       kvPeakAllocatedBlocks: 6,
       kvPeakReservedBlocks: 8,
+      kvPeakCachedBlocks: 0,
+      kvPeakPhysicalBlocks: 6,
+      kvPeakLogicalBlocks: 8,
+      kvPeakSharedBlocks: 2,
       kvPeakUtilization: 0.6,
+      kvPeakPhysicalUtilization: 0.6,
       avgDecodeBatchSize: 1.5,
+    })
+    expect(summary.prefixCache).toEqual({
+      hitRequests: 0,
+      totalRequests: 2,
+      hitTokens: 0,
+      totalPromptTokens: 8,
+      requestHitRate: 0,
+      tokenHitRate: 0,
     })
     expect(summary.throughputRequestsPerSecond).toBeCloseTo(8)
     expect(summary.throughputOutputTokensPerSecond).toBeCloseTo(24)
@@ -190,6 +212,46 @@ describe('summarizeOutcomes', () => {
     expect(summary.ttftMs.p95).toBeCloseTo(48)
     expect(summary.tpotMs).toMatchObject({ count: 1, mean: 22.5, p50: 22.5, max: 22.5 })
     expect(summary.e2eMs).toMatchObject({ count: 2, mean: 150, p95: 195, max: 200 })
+  })
+
+  it('summarizes prefix-cache reuse and hit rates', () => {
+    const outcomes = [
+      outcome({
+        id: 'a',
+        promptTokens: 12,
+        prefixHitTokens: 8,
+        timestamps: {
+          arrivedAt: 0,
+          admittedAt: 0,
+          prefillStartedAt: 0,
+          firstTokenAt: 10,
+          finishedAt: 100,
+        },
+      }),
+      outcome({
+        id: 'b',
+        promptTokens: 12,
+        prefixHitTokens: 0,
+        timestamps: {
+          arrivedAt: 0,
+          admittedAt: 0,
+          prefillStartedAt: 0,
+          firstTokenAt: 10,
+          finishedAt: 100,
+        },
+      }),
+    ]
+
+    const summary = summarizeOutcomes(outcomes, [], CACHE, 'prefix')
+
+    expect(summary.prefixCache).toEqual({
+      hitRequests: 1,
+      totalRequests: 2,
+      hitTokens: 8,
+      totalPromptTokens: 24,
+      requestHitRate: 0.5,
+      tokenHitRate: 8 / 24,
+    })
   })
 
   it('reports null distributions and zero throughput for an empty run', () => {

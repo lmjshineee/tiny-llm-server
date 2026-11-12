@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 2 (working simulator, CLI, and retained prefix cache). The benchmark harness and
-web visualizer are planned, not implemented.
+Status: Phase 3 (simulator, prefix cache, benchmark harness, CLI). The web visualizer is
+planned, not implemented.
 
 ## 1. Purpose and scope
 
@@ -17,6 +17,8 @@ The lab is designed to answer questions such as:
 - How does KV-cache capacity bound the number of concurrent requests?
 - How much prefill work do reusable prompt prefixes save, and what memory do they retain?
 - How do batch size, token budget, and prefill chunk size trade off TTFT against TPOT?
+- Which scheduling configuration wins across steady, bursty, prefix-heavy, short-chat, and
+  long-context workloads under one reproducible benchmark matrix?
 
 ### What is simulated
 
@@ -54,6 +56,8 @@ flowchart LR
   C["CLI comparison<br/>same workload, both policies"]
   U["React visualizer<br/>(Phase 4)"]
   P["Prefix cache<br/>(Phase 2: retention + LRU)"]
+  B["Benchmark harness<br/>scenarios × matrix × schema"]
+  J["Deterministic JSON report<br/>schema 1.0"]
 
   W --> E
   E -- "SchedulingContext" --> S
@@ -65,6 +69,8 @@ flowchart LR
   M -. "SimulationResult" .-> U
   E -. "step trace" .-> U
   P --> K
+  M --> B
+  B --> J
 ```
 
 The core (`src/core`) has no DOM, React, or Node-only dependencies. The CLI is a thin adapter.
@@ -349,7 +355,41 @@ variance. Replace the model with measured traces before drawing performance conc
 The throughput denominator includes ramp-up and drain time. Workloads with different arrival
 rates are therefore not directly comparable unless makespan semantics are considered.
 
-## 9. Design decisions
+## 9. Benchmark harness
+
+`src/core/benchmark.ts` (pure) and `src/cli/bench.ts` (Node file/stdio adapter).
+
+Five scenarios cover different pressure points:
+
+| Scenario | Requests | Arrival rate | Mean prompt / output | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `steady` | 60 | 1.5 req/s | 512 / 128 | baseline queueing |
+| `bursty` | 80 | 6 req/s | 256 / 96 | deliberate overload |
+| `prefix-heavy` | 60 | 1.5 req/s | 512 / 96 | 90% share two 256-token prefixes |
+| `short-chat` | 80 | 4 req/s | 96 / 48 | short requests at high rate |
+| `long-context` | 24 | 0.5 req/s | 2048 / 96 | KV capacity pressure |
+
+The default matrix crosses scheduler (`fcfs`, `continuous-batching`) × batch size (8, 16) ×
+prefill chunk (256, 512) × KV capacity (1,024 / 2,048 blocks): 80 runs in about a second on
+the development machine. The report preserves every axis; the CLI table shows representative
+baseline cells and a best-throughput cell when it improves on the baseline.
+
+The report includes:
+
+- `schemaVersion: "1.0"` and `costModelVersion: "synthetic-v1"` so consumers can detect shape
+  or cost-model drift.
+- The seed, normalized matrix axes, every workload config, and every engine config.
+- Per-run summaries: throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit metrics, KV peaks.
+- No wall-clock timestamp, so identical options produce byte-identical JSON.
+- No per-request traces or steps; those stay in the live simulator for the future UI. The report
+  is summary-only to stay small and stable.
+
+`pnpm bench` writes `bench-results.json`; `pnpm bench --smoke --json` emits a two-run report to
+stdout for CI. `--out`, `--scenario` (repeatable), `--seed`, and the three matrix axes are
+available from the CLI. A benchmark report is a simulation artifact and is never presented as
+a hardware measurement.
+
+## 10. Design decisions
 
 | Decision | Alternatives considered | Choice and trade-off |
 | --- | --- | --- |
@@ -361,9 +401,10 @@ rates are therefore not directly comparable unless makespan semantics are consid
 | Synthetic prefix keys | Real token hashes / radix tree | Reproducible without prompt text; not a content-addressed cache. Real hashing is an extension. |
 | Chunked prefill | Prefill whole prompts only | Keeps per-step latency and token budget bounded; introduces prefill/decode interference. |
 | Analytical cost model | Microbenchmark traces | Runs anywhere, reproducible, no hardware claims. Must be replaced for quantitative conclusions. |
+| Benchmark matrix + versioned JSON | Ad-hoc one-off runs | Same scenarios/seed produce byte-identical reports; schema and cost-model versions make changes explicit. Summary-only by design. |
 | FIFO admission only | Shortest-job-first, prefix-aware | Keeps FCFS vs batching comparison controlled; advanced policies are extensions. |
 
-## 10. Extension points
+## 11. Extension points
 
 ### Prefix-aware admission and real hashing
 
@@ -374,12 +415,11 @@ rates are therefore not directly comparable unless makespan semantics are consid
 - Add preemption so an over-committed cache can reclaim active blocks deterministically.
 - Expose per-block metadata (key, ref-count, last-used, cached) in a trace for the UI.
 
-### Benchmark harness
+### Report explorer and scenario editor
 
-- Scenario definitions (steady, bursty, prefix-heavy) with fixed seeds.
-- Run a config matrix and export summary JSON with an explicit `simulated: true` flag.
-- Add P99 and time-series traces for the UI.
-- Never commit numbers presented as hardware results.
+- Import a benchmark JSON report in the React app and compare cells without rerunning.
+- Add scenario editing while keeping `schemaVersion` explicit.
+- Optionally include sampled step traces in a separate artifact; keep the summary report stable.
 
 ### React visualizer
 
@@ -393,7 +433,7 @@ rates are therefore not directly comparable unless makespan semantics are consid
 `src/core` must not import DOM APIs, React, or Node built-ins. The CLI may use Node APIs. Keep
 new interfaces JSON-serializable so the browser can consume them without adapters.
 
-## 11. Known limitations
+## 12. Known limitations
 
 - No real model execution, GPU/NPU, CUDA, Metal, or Ascend integration.
 - No preemption, swapping, or failure injection; KV admission remains worst-case.
@@ -405,9 +445,11 @@ new interfaces JSON-serializable so the browser can consume them without adapter
 - No speculative decoding, priorities, deadlines, or multi-tenant fairness.
 - Cost model ignores attention length effects, memory-bandwidth contention, and hardware
   variance.
+- Benchmark reports intentionally omit per-request traces and step timelines; use the live
+  simulator or a future artifact for those.
 - Single-node, single-model, homogeneous requests.
 
-## 12. References
+## 13. References
 
 - vLLM / PagedAttention: <https://arxiv.org/abs/2309.06180>
 - Orca continuous batching: <https://www.usenix.org/conference/osdi22/presentation/yu>

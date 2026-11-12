@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify:
-    name: Typecheck, test, and demo smoke test
+    name: Typecheck, test, and simulation smoke tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -69,4 +69,25 @@ jobs:
             }
           }
           console.log('prefix cache smoke test passed (simulated)');
+          "
+
+      - name: Benchmark smoke test (simulated)
+        run: |
+          pnpm bench --smoke --json > bench-smoke.json
+          node -e "
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('bench-smoke.json', 'utf8'));
+          if (report.simulated !== true) throw new Error('benchmark must be marked simulated');
+          if (report.schemaVersion !== '1.0') throw new Error('unexpected benchmark schema');
+          if (report.costModelVersion !== 'synthetic-v1') throw new Error('unexpected cost model version');
+          if (report.runCount !== 2) throw new Error('smoke benchmark should run two cells');
+          for (const scenario of report.scenarios) {
+            for (const run of scenario.runs) {
+              if (run.summary.completedRequests !== run.summary.totalRequests) {
+                throw new Error('benchmark run did not complete every request');
+              }
+              if (run.summary.e2eMs.p99 === null) throw new Error('missing P99');
+            }
+          }
+          console.log('benchmark smoke test passed (simulated)');
           "

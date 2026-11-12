@@ -118,19 +118,45 @@ All reported numbers are **simulated**. See README for the captured example.
 - Concurrent misses on the same prefix can duplicate work.
 - Cache lookup/hash latency is not charged; eviction is demand-driven, not background.
 
-## M3 — Benchmark Harness ⏳
+## M3 — Benchmark Harness ✅
 
 Goal: reproducible scenario matrix and machine-readable results.
 
-- [ ] Declare scenarios: steady, bursty/overloaded, prefix-heavy, short-chat, long-context.
-- [ ] Add a matrix runner over scheduler × batch size × KV capacity × prefill chunk size.
-- [ ] Expose P99 in the CLI/report (JSON summaries already compute it) and add per-request percentiles.
-- [ ] Version the result schema (`schemaVersion`) and include config/seed metadata.
-- [ ] Add a `pnpm bench` command with a deterministic smoke scenario for CI.
-- [ ] Test schema stability and deterministic summaries.
+### Delivered
 
-Acceptance: one command produces a reproducible JSON report; every report carries
-`simulated: true`, the cost-model version, and the seed. No hardware claims.
+- [x] Five declared scenarios: steady, bursty, prefix-heavy, short-chat, long-context.
+- [x] Matrix runner over scheduler × batch size × KV capacity × prefill chunk size
+      (default 80 runs).
+- [x] Versioned report (`schemaVersion: "1.0"`, `costModelVersion: "synthetic-v1"`), seed,
+      normalized matrix, workloads, engine configs, and per-run summaries.
+- [x] P99 exposed in CLI tables and JSON; P50/P95/P99 for TTFT, TPOT, and E2E.
+- [x] Deterministic reports: no wall-clock fields; same options produce byte-identical JSON.
+- [x] `pnpm bench`, `--scenario`, `--seed`, axis overrides, `--out`, `--json`, and `--smoke`.
+- [x] Benchmark tests for schema, determinism, matrix overrides, all scenarios, and prefix hits.
+- [x] CI benchmark smoke test.
+
+### Verification record (2026-11-12, Phase 3)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Types | `pnpm typecheck` | pass |
+| Tests | `pnpm test` | 11 files, 77 tests, all pass |
+| Full benchmark | `pnpm bench` | 80 runs, JSON report written |
+| Bench smoke | `pnpm bench --smoke --json` | 2 runs, schema 1.0, all requests complete |
+| Determinism | benchmark test | byte-identical JSON across repeated runs |
+| CI workflow | `.github/workflows/ci.yml` | default + prefix + benchmark smoke steps; not run on GitHub (no remote) |
+
+Commits:
+- `feat: add deterministic benchmark harness and scenario matrix`
+- `test: cover benchmark schema, matrix, and determinism`
+- `docs: document benchmark harness and update Phase 3 status`
+
+### Scope notes
+
+- Reports are summary-only (no step traces) and always marked `simulated: true`.
+- No hardware benchmark claims; the cost model is synthetic.
+- FCFS batch/KV matrix cells are often behaviorally identical because FCFS is sequential.
+  This is expected and useful as an invariance check.
 
 ## M4 — React Visualizer ⏳
 
@@ -184,3 +210,6 @@ without the disclaimer.
 - `feat: add retained prefix cache and shared-prefix workload`
 - `test: cover prefix sharing, eviction, and hit metrics`
 - `docs: document prefix cache and update Phase 2 status`
+- `feat: add deterministic benchmark harness and scenario matrix`
+- `test: cover benchmark schema, matrix, and determinism`
+- `docs: document benchmark harness and update Phase 3 status`

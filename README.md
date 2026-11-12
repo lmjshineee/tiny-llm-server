@@ -3,9 +3,10 @@
 > A deterministic, event-driven lab for understanding LLM request scheduling on a 16 GB
 > Apple Silicon laptop — without running a model or owning a GPU.
 
-**Phase 2 status:** event-driven simulator, FCFS and continuous batching, paged KV cache with
-an optional retained prefix cache, seeded workload generator, CLI comparison, unit/property
-tests, and CI. The benchmark harness and React visualizer are next.
+**Phase 3 status:** event-driven simulator, FCFS and continuous batching, paged KV cache with
+an optional retained prefix cache, seeded workload generator, CLI comparison, a reproducible
+benchmark matrix with versioned JSON output, unit/property tests, and CI. The React visualizer
+is next.
 
 > [!IMPORTANT]
 > **Everything here is simulated.** No transformer is executed, no CUDA/Metal/Ascend runtime is
@@ -26,7 +27,9 @@ This project isolates that question:
 - An optional prefix cache that shares whole prompt blocks by reference, retains them after
   their owners finish, and evicts idle entries LRU under pressure.
 - A reproducible Poisson workload generator and a comparison of throughput, TTFT, TPOT, and
-  P95 latency under the same seed.
+  P95/P99 latency under the same seed.
+- A benchmark harness with five scenarios, a scheduler/batch/chunk/KV matrix, and a versioned
+  deterministic JSON report.
 - A testable core with no UI dependency, ready to feed a React visualizer.
 
 ## Quick start
@@ -39,6 +42,8 @@ or network access is needed after installation.
 pnpm install
 pnpm demo                 # run both schedulers on the default seeded workload
 pnpm demo --prefix-cache  # enable shared-prefix workload + retained prefix cache
+pnpm bench                # 80-run scenario matrix -> bench-results.json
+pnpm bench --smoke --json # fast deterministic matrix for CI/scripts
 pnpm test                 # unit + property tests
 pnpm typecheck            # strict TypeScript
 pnpm check                # typecheck + tests
@@ -52,6 +57,10 @@ pnpm demo --prompt-mean 1024 --output-mean 64 --max-batch 8 --blocks 1024
 pnpm demo --prefix-cache --prefix-pool 2 --prefix-tokens 512 --prefix-prob 0.9
 pnpm demo --json > results.json
 pnpm demo --help
+
+pnpm bench --scenario prefix-heavy --batch-sizes 8,16 --chunks 256 --kv-blocks 1024
+pnpm bench --out bench-results.json
+pnpm bench --help
 ```
 
 ## Example output
@@ -60,7 +69,7 @@ Captured on 2026-11-12 from the default scenario. **Every number below is simula
 not a hardware measurement.**
 
 ```text
-LLM Serving Lab · Phase 2 prefix cache
+LLM Serving Lab · Phase 3 scheduler + prefix cache
 ==================================================
 SIMULATED — no model is executed and no GPU/NPU is used.
 
@@ -129,6 +138,59 @@ Prefix cache (simulated)
 
 All prefix identities in the synthetic workload are declared keys, not hashes of real tokens.
 
+## Benchmark harness
+
+`pnpm bench` runs a deterministic matrix and writes a JSON report (`bench-results.json` by
+default). The default matrix is 5 scenarios × 2 schedulers × 2 batch sizes × 2 prefill chunk
+sizes × 2 KV capacities = 80 runs. Reports carry `schemaVersion`, `costModelVersion`, seed,
+matrix, full engine configs, and per-run P50/P95/P99 summaries. No wall-clock timestamp is
+included, so identical options produce byte-identical JSON.
+
+| Scenario | Requests | Arrival rate | Mean prompt / output | Notes |
+| --- | ---: | ---: | ---: | --- |
+| `steady` | 60 | 1.5 req/s | 512 / 128 | moderate load |
+| `bursty` | 80 | 6 req/s | 256 / 96 | deliberately overloaded |
+| `prefix-heavy` | 60 | 1.5 req/s | 512 / 96 | 90% reuse one of two 256-token prefixes |
+| `short-chat` | 80 | 4 req/s | 96 / 48 | short requests, high rate |
+| `long-context` | 24 | 0.5 req/s | 2048 / 96 | KV capacity is stressed |
+
+```bash
+pnpm bench                                   # 80 runs, write bench-results.json
+pnpm bench --scenario prefix-heavy           # one scenario
+pnpm bench --scenario steady --chunks 256 --kv-blocks 1024
+pnpm bench --smoke --json                    # CI smoke: 2 runs, stdout JSON
+```
+
+Captured output from `pnpm bench` (all numbers simulated):
+
+```text
+LLM Serving Lab · Phase 3 benchmark harness
+==================================================
+SIMULATED — no model is executed and no GPU/NPU is used.
+
+Matrix runs: 80 · schema 1.0 · cost model synthetic-v1 · seed 42
+Scenario      Policy / variant             Req/s    TTFT p95    TPOT p95      E2E p99          Peak KV      TokHit%
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+steady        FCFS base b16 c512 k2048      0.38    110624.8        19.4     117893.7          60/2048       0.0
+steady        CB base b16 c512 k2048        1.40       517.0        44.4       7476.2         485/2048       0.0
+bursty        FCFS base b16 c512 k2048      0.53    130105.3        19.4     137047.6          33/2048       0.0
+bursty        CB base b16 c512 k2048        3.04     10395.4        54.8      14891.9         345/2048       0.0
+prefix-heavy  FCFS base b16 c512 k2048      0.52     71312.4        19.4      76456.0          73/2048      43.9
+prefix-heavy  CB base b16 c512 k2048        1.45       283.6        31.4       3929.2         213/2048      43.9
+short-chat    FCFS base b16 c512 k2048      1.07     51343.1        19.4      53749.3          14/2048       0.0
+short-chat    CB base b16 c512 k2048        3.78       123.7        38.0       2218.6         104/2048       0.0
+long-context  FCFS base b16 c512 k2048      0.36     16544.2        19.4      19728.7         186/2048       0.0
+long-context  CB base b16 c512 k2048        0.47      1554.0        53.5       8017.5         942/2048       0.0
+
+Base rows use the largest matrix cell (batch/chunk/KV); CB best is the highest-throughput continuous-batching cell.
+All values are SIMULATED by a synthetic analytical cost model.
+These are not Apple Silicon, CUDA, or Ascend hardware measurements.
+```
+
+The CLI shows the base cell and only shows a `CB best` row when another continuous-batching
+cell has strictly higher throughput; the full 80-run matrix is always in the JSON. Reports are
+deliberately summary-only — this is a scheduling lab, not a hardware benchmark suite.
+
 ## Metrics
 
 | Metric | Meaning |
@@ -180,10 +242,12 @@ src/core/            pure simulator and scheduling logic (no DOM/React/Node APIs
   schedulers/        FCFS and continuous batching
   kv-cache.ts        paged allocator, ref-counted prefix sharing, LRU retention
   workload.ts        seeded Poisson + token distributions + shared-prefix metadata
+  benchmark.ts       scenarios, matrix runner, versioned report schema
   metrics.ts         TTFT/TPOT/P95 aggregation + prefix hit statistics
   cost-model.ts      synthetic latency model
 src/cli/demo.ts      comparison CLI (Node)
-test/                unit tests, property tests, scenario regression tests
+src/cli/bench.ts     benchmark matrix CLI + JSON writer (Node)
+test/                unit tests, property tests, benchmark and scenario tests
 ARCHITECTURE.md      design, invariants, trade-offs, limitations
 TASKS.md             milestone plan and verification record
 ```
@@ -191,18 +255,19 @@ TASKS.md             milestone plan and verification record
 ## Testing and CI
 
 ```text
-10 test files, 73 tests (as of Phase 2)
+11 test files, 77 tests (as of Phase 3)
 - exact scheduler and engine timing tests
 - KV allocation/free/capacity tests
 - prefix sharing, retention, contiguous-hit, and LRU-eviction tests
 - fast-check property tests for allocator/prefix invariants and end-to-end simulations
 - deterministic seeded workload tests
+- benchmark schema, determinism, matrix, and scenario tests
 - a scenario regression test for the headline FCFS vs continuous-batching comparison
 ```
 
-`.github/workflows/ci.yml` runs install, typecheck, tests, and JSON smoke tests for both the
-default and prefix-cache demos on Node 24. This checkout has no GitHub remote yet, so the
-workflow has not executed on GitHub; the same commands pass locally.
+`.github/workflows/ci.yml` runs install, typecheck, tests, and JSON smoke tests for the default
+demo, prefix cache, and benchmark harness on Node 24. This checkout has no GitHub remote yet,
+so the workflow has not executed on GitHub; the same commands pass locally.
 
 ## Roadmap
 
@@ -210,8 +275,8 @@ workflow has not executed on GitHub; the same commands pass locally.
 | --- | --- | --- |
 | 1 | Simulator, FCFS + continuous batching, paged KV, metrics, tests, CI, docs | ✅ Done |
 | 2 | Optional prefix cache with block sharing, retention, hit/memory statistics | ✅ Done |
-| 3 | Benchmark harness, scenario matrix, P99 reporting, JSON export | ⏳ Next |
-| 4 | React visualizer: timeline, queue, request states, KV blocks, charts | ⏳ Planned |
+| 3 | Benchmark harness, scenario matrix, P99 reporting, versioned JSON export | ✅ Done |
+| 4 | React visualizer: timeline, queue, request states, KV blocks, charts | ⏳ Next |
 | 5 | Hardening: coverage thresholds, more invariants, docs polish | ⏳ Planned |
 
 ## Engineering principles
@@ -228,13 +293,13 @@ workflow has not executed on GitHub; the same commands pass locally.
 这是一个**纯模拟**的大模型推理调度实验室：在 Apple Silicon 16 GB 笔记本上也能运行，
 不加载模型、不需要 GPU，所有性能数字都来自文档化的合成延迟模型，不是硬件实测。
 
-第二阶段已完成：在事件驱动模拟器、FCFS 与 Continuous Batching、分页 KV Cache 之上，
-加入了可选的 Prefix Cache——整块共享、引用计数、完成后保留、LRU 驱逐，并统计命中请求、
-命中 token、物理/逻辑 KV 占用。当前共有 10 个测试文件、73 个单元与属性测试。
-Benchmark 矩阵与 React 可视化将在后续阶段实现。
+第三阶段已完成：在事件驱动模拟器、FCFS 与 Continuous Batching、分页 KV Cache、可选
+Prefix Cache 之上，加入了可复现的 Benchmark Harness——5 个场景 × 调度器/批大小/prefill
+chunk/KV 容量的矩阵、P99 指标、带 schema 版本与 seed 的确定性 JSON 报告。当前共有
+11 个测试文件、77 个单元与属性测试。React 可视化将在下一阶段实现。
 
 ```bash
-pnpm install && pnpm demo --prefix-cache && pnpm test
+pnpm install && pnpm demo --prefix-cache && pnpm bench && pnpm test
 ```
 
 ## License

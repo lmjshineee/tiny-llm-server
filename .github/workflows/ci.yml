@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, test, and demo smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Demo smoke test (simulated)
+        run: |
+          pnpm demo --json > demo-results.json
+          node -e "
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('demo-results.json', 'utf8'));
+          if (report.simulated !== true) throw new Error('demo must be marked simulated');
+          if (!Array.isArray(report.runs) || report.runs.length !== 2) throw new Error('expected two runs');
+          for (const run of report.runs) {
+            if (run.summary.completedRequests !== run.summary.totalRequests) {
+              throw new Error('demo run did not complete every request');
+            }
+          }
+          console.log('demo smoke test passed (simulated)');
+          "

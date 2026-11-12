@@ -3,12 +3,22 @@ export const REQUEST_STATES = ['waiting', 'prefill', 'decode', 'finished'] as co
 
 export type RequestState = (typeof REQUEST_STATES)[number]
 
+/** Synthetic content identity for a reusable prompt prefix. */
+export interface RequestPrefix {
+  /** Identity shared by requests whose prefix tokens are identical. */
+  readonly key: string
+  /** Declared prefix length in tokens; the cache only shares whole blocks. */
+  readonly tokens: number
+}
+
 /** Immutable request description produced by the workload generator. */
 export interface RequestSpec {
   readonly id: string
   readonly arrivalTime: number
   readonly promptTokens: number
   readonly maxNewTokens: number
+  /** Optional shared-prefix metadata. Omit it to disable prefix caching for this request. */
+  readonly prefix?: RequestPrefix
 }
 
 /** Virtual-clock timestamps, in milliseconds. */
@@ -26,6 +36,8 @@ export interface RequestView extends RequestSpec {
   readonly prefilledTokens: number
   readonly outputTokens: number
   readonly timestamps: Readonly<RequestTimestamps>
+  /** Tokens skipped because a cached prefix was reused (0 for cache misses). */
+  readonly prefixHitTokens?: number
 }
 
 /** A chunk of prompt tokens to compute in one step. */
@@ -55,9 +67,12 @@ export interface StepPlan {
 export interface CacheView {
   readonly blockSize: number
   readonly totalBlocks: number
-  /** Blocks currently holding real tokens. */
+  /**
+   * Physical blocks referenced by at least one active request. Shared prefix
+   * blocks are counted once, not once per owning request.
+   */
   readonly allocatedBlocks: number
-  /** Worst-case blocks promised to active requests (>= allocatedBlocks). */
+  /** Worst-case logical blocks promised to active requests (>= allocatedBlocks). */
   readonly reservedBlocks: number
   /** Blocks that may still be promised to new requests (totalBlocks - reservedBlocks). */
   readonly availableBlocks: number
@@ -110,9 +125,21 @@ export interface EngineConfig {
 }
 
 export interface CacheStats extends CacheView {
-  /** Blocks not holding tokens right now (can be reserved for future use). */
+  /** Retained prefix-cache blocks that no active request references (evictable). */
+  readonly cachedBlocks: number
+  /** allocatedBlocks + cachedBlocks: the real physical footprint. */
+  readonly physicalBlocks: number
+  /** Sum of active block-table lengths; shared blocks are counted once per request. */
+  readonly logicalBlocks: number
+  /** Active physical blocks referenced by more than one request. */
+  readonly sharedBlocks: number
+  /** Physically free blocks (totalBlocks - physicalBlocks); retained cache is not free. */
   readonly freeAllocatedBlocks: number
   readonly peakAllocatedBlocks: number
+  readonly peakCachedBlocks: number
+  readonly peakPhysicalBlocks: number
+  readonly peakLogicalBlocks: number
+  readonly peakSharedBlocks: number
   readonly peakReservedBlocks: number
   readonly activeRequests: number
 }
@@ -145,9 +172,21 @@ export interface DistributionSummary {
 export interface RequestOutcome extends RequestSpec {
   readonly timestamps: Readonly<Required<RequestTimestamps>>
   readonly outputTokens: number
+  readonly prefixHitTokens: number
   readonly ttftMs: number
   readonly tpotMs: number | null
   readonly e2eMs: number
+}
+
+export interface PrefixCacheSummary {
+  readonly hitRequests: number
+  readonly totalRequests: number
+  readonly hitTokens: number
+  readonly totalPromptTokens: number
+  /** Fraction of requests that reused at least one cached prefix block. */
+  readonly requestHitRate: number
+  /** Fraction of all prompt tokens served from the prefix cache. */
+  readonly tokenHitRate: number
 }
 
 export interface Summary {
@@ -164,9 +203,15 @@ export interface Summary {
   readonly totalSteps: number
   /** Mean number of sequences decoded per step, over steps that decoded anything. */
   readonly avgDecodeBatchSize: number
+  readonly prefixCache: PrefixCacheSummary
   readonly kvPeakAllocatedBlocks: number
   readonly kvPeakReservedBlocks: number
+  readonly kvPeakCachedBlocks: number
+  readonly kvPeakPhysicalBlocks: number
+  readonly kvPeakLogicalBlocks: number
+  readonly kvPeakSharedBlocks: number
   readonly kvPeakUtilization: number
+  readonly kvPeakPhysicalUtilization: number
 }
 
 export type DeepPartial<T> = {

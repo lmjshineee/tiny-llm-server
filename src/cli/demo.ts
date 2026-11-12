@@ -27,6 +27,10 @@ interface CliOptions {
   maxBatch: number
   maxBatchedTokens: number
   totalBlocks: number
+  prefixCache: boolean
+  prefixPool: number
+  prefixTokens: number
+  prefixProbability: number
   json: boolean
   help: boolean
 }
@@ -51,6 +55,10 @@ function parseArgs(argv: readonly string[]): CliOptions {
     maxBatch: DEFAULT_ENGINE_CONFIG.maxBatchSize,
     maxBatchedTokens: DEFAULT_ENGINE_CONFIG.maxNumBatchedTokens,
     totalBlocks: DEFAULT_ENGINE_CONFIG.kv.totalBlocks,
+    prefixCache: DEFAULT_WORKLOAD_CONFIG.prefix.enabled,
+    prefixPool: DEFAULT_WORKLOAD_CONFIG.prefix.poolSize,
+    prefixTokens: DEFAULT_WORKLOAD_CONFIG.prefix.tokens,
+    prefixProbability: DEFAULT_WORKLOAD_CONFIG.prefix.requestProbability,
     json: false,
     help: false,
   }
@@ -61,6 +69,10 @@ function parseArgs(argv: readonly string[]): CliOptions {
 
     if (raw === '--json') {
       options.json = true
+      continue
+    }
+    if (raw === '--prefix-cache') {
+      options.prefixCache = true
       continue
     }
     if (raw === '--help' || raw === '-h') {
@@ -109,6 +121,15 @@ function parseArgs(argv: readonly string[]): CliOptions {
       case '--blocks':
         options.totalBlocks = parseNumber(value, flag)
         break
+      case '--prefix-pool':
+        options.prefixPool = parseNumber(value, flag)
+        break
+      case '--prefix-tokens':
+        options.prefixTokens = parseNumber(value, flag)
+        break
+      case '--prefix-prob':
+        options.prefixProbability = parseNumber(value, flag)
+        break
       default:
         throw new CliError(`unknown flag "${flag}"`)
     }
@@ -118,7 +139,7 @@ function parseArgs(argv: readonly string[]): CliOptions {
 }
 
 function usage(): string {
-  return `LLM Serving Lab — Phase 1 scheduler prototype
+  return `LLM Serving Lab — Phase 2 prefix cache
 
 Usage:
   pnpm demo [options]
@@ -132,6 +153,10 @@ Options:
   --max-batch <n>      continuous-batching batch size (default ${DEFAULT_ENGINE_CONFIG.maxBatchSize})
   --budget <n>         tokens per step (default ${DEFAULT_ENGINE_CONFIG.maxNumBatchedTokens})
   --blocks <n>         KV cache blocks (default ${DEFAULT_ENGINE_CONFIG.kv.totalBlocks})
+  --prefix-cache       enable shared-prefix workload + prefix cache
+  --prefix-pool <n>    distinct reusable prefixes (default ${DEFAULT_WORKLOAD_CONFIG.prefix.poolSize})
+  --prefix-tokens <n>  target prefix length (default ${DEFAULT_WORKLOAD_CONFIG.prefix.tokens})
+  --prefix-prob <p>    fraction of requests using a prefix (default ${DEFAULT_WORKLOAD_CONFIG.prefix.requestProbability})
   --json               print machine-readable summaries
   -h, --help           show this help
 
@@ -176,7 +201,7 @@ function printComparison(options: CliOptions, runs: readonly SimulationResult[])
   for (const run of runs) {
     const { summary } = run
     const label = STRATEGY_LABELS[summary.strategy] ?? summary.strategy
-    const peakKv = `${summary.kvPeakAllocatedBlocks}/${run.cache.totalBlocks} (${(summary.kvPeakUtilization * 100).toFixed(1)}%)`
+    const peakKv = `${summary.kvPeakPhysicalBlocks}/${run.cache.totalBlocks} (${(summary.kvPeakPhysicalUtilization * 100).toFixed(1)}%)`
     process.stdout.write(
       `${formatRow([
         label,
@@ -191,6 +216,8 @@ function printComparison(options: CliOptions, runs: readonly SimulationResult[])
       ])}\n`,
     )
   }
+
+  printPrefixStats(options, runs)
 
   const fcfs = runs.find((run) => run.summary.strategy === 'fcfs')?.summary
   const continuous = runs.find((run) => run.summary.strategy === 'continuous-batching')?.summary
@@ -224,8 +251,37 @@ function printComparison(options: CliOptions, runs: readonly SimulationResult[])
   process.stdout.write('These are not Apple Silicon, CUDA, or Ascend hardware measurements.\n')
 }
 
+function printPrefixStats(options: CliOptions, runs: readonly SimulationResult[]): void {
+  if (!options.prefixCache) return
+
+  const anyHits = runs.some((run) => run.summary.prefixCache.hitTokens > 0)
+  process.stdout.write('\nPrefix cache (simulated)\n')
+
+  if (!anyHits) {
+    process.stdout.write('  no prefix hits in this run (first use of each prefix always misses)\n')
+    return
+  }
+
+  for (const run of runs) {
+    const summary = run.summary
+    const prefix = summary.prefixCache
+    const label = STRATEGY_LABELS[summary.strategy] ?? summary.strategy
+    const hitRequests = `${prefix.hitRequests}/${prefix.totalRequests}`
+    const hitTokens = `${prefix.hitTokens}/${prefix.totalPromptTokens}`
+    process.stdout.write(
+      `  ${label}: ${hitRequests} hit requests, ${hitTokens} prompt tokens ` +
+        `(${(prefix.tokenHitRate * 100).toFixed(1)}%)\n`,
+    )
+    process.stdout.write(
+      `    KV peak: physical ${summary.kvPeakPhysicalBlocks}, logical-active ` +
+        `${summary.kvPeakLogicalBlocks}, shared ${summary.kvPeakSharedBlocks}, ` +
+        `retained ${summary.kvPeakCachedBlocks} blocks\n`,
+    )
+  }
+}
+
 function printScenario(options: CliOptions): void {
-  process.stdout.write('LLM Serving Lab · Phase 1 scheduler prototype\n')
+  process.stdout.write('LLM Serving Lab · Phase 2 prefix cache\n')
   process.stdout.write('==================================================\n')
   process.stdout.write('SIMULATED — no model is executed and no GPU/NPU is used.\n\n')
   process.stdout.write(
@@ -245,7 +301,8 @@ function printScenario(options: CliOptions): void {
   )
   process.stdout.write(
     `KV: ${options.totalBlocks} blocks × ${DEFAULT_ENGINE_CONFIG.kv.blockSize} tokens ` +
-      `= ${options.totalBlocks * DEFAULT_ENGINE_CONFIG.kv.blockSize} slots; prefix cache off\n`,
+      `= ${options.totalBlocks * DEFAULT_ENGINE_CONFIG.kv.blockSize} slots; ` +
+      `prefix cache ${options.prefixCache ? 'on' : 'off'}\n`,
   )
   process.stdout.write(
     `Cost model: prefill ${DEFAULT_ENGINE_CONFIG.cost.prefillBaseMs.toFixed(2)} + ` +
@@ -253,6 +310,14 @@ function printScenario(options: CliOptions): void {
       `${DEFAULT_ENGINE_CONFIG.cost.decodeBaseMs.toFixed(2)} + ` +
       `${DEFAULT_ENGINE_CONFIG.cost.decodeMsPerRequest.toFixed(2)}/sequence ms\n`,
   )
+  if (options.prefixCache) {
+    process.stdout.write(
+      `Prefix workload: ${(options.prefixProbability * 100).toFixed(0)}% of requests reuse one of ` +
+        `${options.prefixPool} prefixes of up to ${options.prefixTokens} tokens\n`,
+    )
+  } else {
+    process.stdout.write('Prefix workload: off (no shared prefixes generated)\n')
+  }
 }
 
 function main(): void {
@@ -268,6 +333,12 @@ function main(): void {
     seed: options.seed,
     promptTokens: { mean: options.promptMean },
     outputTokens: { mean: options.outputMean },
+    prefix: {
+      enabled: options.prefixCache,
+      poolSize: options.prefixPool,
+      tokens: options.prefixTokens,
+      requestProbability: options.prefixProbability,
+    },
   })
 
   const engineConfig = createEngineConfig({

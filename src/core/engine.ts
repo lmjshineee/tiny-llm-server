@@ -14,6 +14,7 @@ import type {
   CacheStats,
   DeepPartial,
   EngineConfig,
+  PrefillIntent,
   RequestOutcome,
   RequestSpec,
   RequestState,
@@ -29,6 +30,7 @@ interface MutableRequest extends RequestSpec {
   state: RequestState
   prefilledTokens: number
   outputTokens: number
+  prefixHitTokens: number
   readonly timestamps: RequestTimestamps
 }
 
@@ -151,6 +153,7 @@ class Simulator {
       )
     }
 
+    this.#cache.validate()
     return this.#buildResult()
   }
 
@@ -181,6 +184,20 @@ class Simulator {
         throw new RequestValidationError(`request "${spec.id}" is too large to represent safely`)
       }
 
+      if (spec.prefix !== undefined) {
+        if (typeof spec.prefix.key !== 'string' || spec.prefix.key.trim().length === 0) {
+          throw new RequestValidationError(`request "${spec.id}" has an empty prefix key`)
+        }
+        if (!Number.isSafeInteger(spec.prefix.tokens) || spec.prefix.tokens <= 0) {
+          throw new RequestValidationError(`request "${spec.id}" has an invalid prefix token count`)
+        }
+        if (spec.prefix.tokens > spec.promptTokens) {
+          throw new RequestValidationError(
+            `request "${spec.id}" declares a prefix longer than its prompt`,
+          )
+        }
+      }
+
       const blocks = requiredBlocks(spec, this.#cache.blockSize)
       if (blocks > this.#cache.totalBlocks) {
         throw new RequestTooLargeError(
@@ -193,16 +210,24 @@ class Simulator {
       .map((spec, originalIndex) => ({ spec, originalIndex }))
       .sort((a, b) => a.spec.arrivalTime - b.spec.arrivalTime || a.originalIndex - b.originalIndex)
 
-    return sorted.map(({ spec }) => ({
-      id: spec.id,
-      arrivalTime: spec.arrivalTime,
-      promptTokens: spec.promptTokens,
-      maxNewTokens: spec.maxNewTokens,
-      state: 'waiting',
-      prefilledTokens: 0,
-      outputTokens: 0,
-      timestamps: { arrivedAt: spec.arrivalTime },
-    }))
+    return sorted.map(({ spec }) => {
+      const request: MutableRequest = {
+        id: spec.id,
+        arrivalTime: spec.arrivalTime,
+        promptTokens: spec.promptTokens,
+        maxNewTokens: spec.maxNewTokens,
+        state: 'waiting',
+        prefilledTokens: 0,
+        outputTokens: 0,
+        prefixHitTokens: 0,
+        timestamps: { arrivedAt: spec.arrivalTime },
+      }
+
+      if (spec.prefix !== undefined) {
+        return { ...request, prefix: { ...spec.prefix } }
+      }
+      return request
+    })
   }
 
   #scheduleStep(time: number): void {
@@ -231,27 +256,7 @@ class Simulator {
     const plan = this.#scheduler.plan(this.#context())
     this.#validatePlan(plan)
 
-    let prefillTokens = 0
-    for (const intent of plan.prefill) prefillTokens += intent.tokens
-    const decodeTokens = plan.decode.length
-
-    if (prefillTokens + decodeTokens === 0) {
-      throw new SimulationStalledError(
-        `scheduler "${this.#scheduler.name}" produced no work while ` +
-          `${this.#waiting.length} request(s) are waiting and ${this.#running.length} are running`,
-      )
-    }
-
-    const latencyMs = estimateStepLatency(this.#config.cost, prefillTokens, decodeTokens)
     const startMs = this.#now
-    const endMs = startMs + latencyMs
-
-    if (endMs > this.#config.maxSimTimeMs) {
-      throw new SimulationLimitError(
-        `simulation reached ${endMs.toFixed(1)}ms, beyond maxSimTimeMs=${this.#config.maxSimTimeMs}`,
-      )
-    }
-
     const waitingById = new Map(this.#waiting.map((request) => [request.id, request]))
     const admittedIds = new Set(plan.admit)
 
@@ -261,7 +266,20 @@ class Simulator {
         // Unreachable after validation; keeps the execution phase defensive.
         throw new PlanValidationError(`cannot admit unknown waiting request "${requestId}"`)
       }
-      this.#cache.reserve(requestId, request.promptTokens + request.maxNewTokens)
+
+      const prefixTokens = this.#prefixTokensFor(request)
+      const prefix = request.prefix
+      this.#cache.reserve(
+        requestId,
+        request.promptTokens + request.maxNewTokens,
+        prefix !== undefined && prefixTokens > 0
+          ? { key: prefix.key, tokens: prefixTokens }
+          : undefined,
+      )
+
+      const hitTokens = this.#cache.prefixHitTokensFor(requestId)
+      request.prefilledTokens = hitTokens
+      request.prefixHitTokens = hitTokens
       request.state = 'prefill'
       request.timestamps.admittedAt = startMs
       request.timestamps.prefillStartedAt = startMs
@@ -272,7 +290,44 @@ class Simulator {
       this.#waiting = this.#waiting.filter((request) => !admittedIds.has(request.id))
     }
 
+    // The scheduler planned against pre-hit state. A prefix hit can reduce the
+    // remaining prompt, so its intent is an upper bound; clamp to the suffix.
+    const prefilled: PrefillIntent[] = []
+    let prefillTokens = 0
+
     for (const intent of plan.prefill) {
+      const request = this.#byId.get(intent.requestId)
+      if (request === undefined) {
+        throw new PlanValidationError(`cannot prefill unknown request "${intent.requestId}"`)
+      }
+
+      const remainingPromptTokens = request.promptTokens - request.prefilledTokens
+      const tokens = Math.min(intent.tokens, remainingPromptTokens)
+      if (tokens <= 0) continue
+
+      prefilled.push({ requestId: request.id, tokens })
+      prefillTokens += tokens
+    }
+
+    const decodeTokens = plan.decode.length
+
+    if (prefillTokens + decodeTokens === 0) {
+      throw new SimulationStalledError(
+        `scheduler "${this.#scheduler.name}" produced no work while ` +
+          `${this.#waiting.length} request(s) are waiting and ${this.#running.length} are running`,
+      )
+    }
+
+    const latencyMs = estimateStepLatency(this.#config.cost, prefillTokens, decodeTokens)
+    const endMs = startMs + latencyMs
+
+    if (endMs > this.#config.maxSimTimeMs) {
+      throw new SimulationLimitError(
+        `simulation reached ${endMs.toFixed(1)}ms, beyond maxSimTimeMs=${this.#config.maxSimTimeMs}`,
+      )
+    }
+
+    for (const intent of prefilled) {
       const request = this.#byId.get(intent.requestId)
       if (request === undefined) {
         throw new PlanValidationError(`cannot prefill unknown request "${intent.requestId}"`)
@@ -316,7 +371,7 @@ class Simulator {
 
     const batchIds = new Set<string>([
       ...plan.admit,
-      ...plan.prefill.map((intent) => intent.requestId),
+      ...prefilled.map((intent) => intent.requestId),
       ...plan.decode,
     ])
 
@@ -326,7 +381,7 @@ class Simulator {
       endMs,
       latencyMs,
       admitted: [...plan.admit],
-      prefilled: plan.prefill.map((intent) => ({ requestId: intent.requestId, tokens: intent.tokens })),
+      prefilled: prefilled.map((intent) => ({ requestId: intent.requestId, tokens: intent.tokens })),
       decoded: [...plan.decode],
       prefillTokens,
       decodeTokens,
@@ -334,6 +389,15 @@ class Simulator {
     })
 
     this.#now = endMs
+  }
+
+  /** Block-aligned prefix length, keeping at least one prompt token to prefill. */
+  #prefixTokensFor(request: MutableRequest): number {
+    const prefix = request.prefix
+    if (prefix === undefined) return 0
+
+    const capped = Math.min(prefix.tokens, request.promptTokens - 1)
+    return Math.max(0, Math.floor(capped / this.#cache.blockSize) * this.#cache.blockSize)
   }
 
   #validatePlan(plan: StepPlan): void {

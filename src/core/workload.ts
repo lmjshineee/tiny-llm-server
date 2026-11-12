@@ -9,6 +9,17 @@ export interface TokenDistribution {
   readonly max: number
 }
 
+export interface PrefixWorkloadConfig {
+  /** Opt-in switch; off keeps the original workload and emits no prefix metadata. */
+  readonly enabled: boolean
+  /** Number of distinct reusable prefixes. */
+  readonly poolSize: number
+  /** Target prefix length; clamped to each request's prompt. */
+  readonly tokens: number
+  /** Fraction of requests that draw a prefix from the pool (0..1). */
+  readonly requestProbability: number
+}
+
 export interface WorkloadConfig {
   readonly numRequests: number
   /** Poisson arrival rate: average requests per virtual second. */
@@ -16,6 +27,7 @@ export interface WorkloadConfig {
   readonly seed: number
   readonly promptTokens: TokenDistribution
   readonly outputTokens: TokenDistribution
+  readonly prefix: PrefixWorkloadConfig
 }
 
 export const DEFAULT_WORKLOAD_CONFIG: WorkloadConfig = {
@@ -24,6 +36,12 @@ export const DEFAULT_WORKLOAD_CONFIG: WorkloadConfig = {
   seed: 42,
   promptTokens: { mean: 512, stddev: 128, min: 64, max: 2048 },
   outputTokens: { mean: 128, stddev: 32, min: 16, max: 512 },
+  prefix: {
+    enabled: false,
+    poolSize: 4,
+    tokens: 256,
+    requestProbability: 0.75,
+  },
 }
 
 function assertDistribution(distribution: TokenDistribution, name: string): void {
@@ -53,6 +71,21 @@ export function validateWorkloadConfig(config: WorkloadConfig): void {
   }
   assertDistribution(config.promptTokens, 'workload.promptTokens')
   assertDistribution(config.outputTokens, 'workload.outputTokens')
+
+  const prefix = config.prefix
+  if (!Number.isSafeInteger(prefix.poolSize) || prefix.poolSize <= 0) {
+    throw new WorkloadConfigError('workload.prefix.poolSize must be a positive integer')
+  }
+  if (!Number.isSafeInteger(prefix.tokens) || prefix.tokens <= 0) {
+    throw new WorkloadConfigError('workload.prefix.tokens must be a positive integer')
+  }
+  if (
+    !Number.isFinite(prefix.requestProbability) ||
+    prefix.requestProbability < 0 ||
+    prefix.requestProbability > 1
+  ) {
+    throw new WorkloadConfigError('workload.prefix.requestProbability must be in [0, 1]')
+  }
 }
 
 export function createWorkloadConfig(overrides: DeepPartial<WorkloadConfig> = {}): WorkloadConfig {
@@ -73,6 +106,13 @@ export function createWorkloadConfig(overrides: DeepPartial<WorkloadConfig> = {}
       min: overrides.outputTokens?.min ?? base.outputTokens.min,
       max: overrides.outputTokens?.max ?? base.outputTokens.max,
     },
+    prefix: {
+      enabled: overrides.prefix?.enabled ?? base.prefix.enabled,
+      poolSize: overrides.prefix?.poolSize ?? base.prefix.poolSize,
+      tokens: overrides.prefix?.tokens ?? base.prefix.tokens,
+      requestProbability:
+        overrides.prefix?.requestProbability ?? base.prefix.requestProbability,
+    },
   }
 
   validateWorkloadConfig(config)
@@ -92,9 +132,13 @@ function sampleClampedTokenCount(distribution: TokenDistribution, rng: ReturnTyp
  * Deterministic synthetic workload: Poisson arrivals with log-normal-ish
  * (normal, clamped) prompt and output lengths.
  *
- * The same seed always produces the same request list. Note that this models
- * arrivals only; it says nothing about real prompt contents (no prefix sharing
- * yet, so there is no prefix-cache hit behavior to generate).
+ * The same seed always produces the same request list. Shared prefixes use a
+ * synthetic content key rather than real tokens: the simulator has no prompt
+ * text, so `prefix.key` stands in for a hash of the prefix tokens.
+ *
+ * Prefix assignment uses a separate RNG stream. Enabling prefix metadata
+ * therefore leaves arrivals and token lengths identical to the prefix-off
+ * workload, which makes A/B comparisons fair.
  */
 export function generateWorkload(config: WorkloadConfig): RequestSpec[] {
   validateWorkloadConfig(config)
@@ -120,5 +164,25 @@ export function generateWorkload(config: WorkloadConfig): RequestSpec[] {
     })
   }
 
-  return requests
+  if (!config.prefix.enabled) return requests
+
+  const prefixRng = createRng((config.seed ^ 0x9e3779b9) >>> 0)
+  return requests.map((request) => {
+    const usesPrefix = prefixRng.next() < config.prefix.requestProbability
+    if (!usesPrefix) return request
+
+    const poolIndex = Math.min(
+      config.prefix.poolSize - 1,
+      Math.floor(prefixRng.next() * config.prefix.poolSize),
+    )
+    const tokens = Math.min(config.prefix.tokens, request.promptTokens)
+
+    return {
+      ...request,
+      prefix: {
+        key: `prefix-${poolIndex}`,
+        tokens,
+      },
+    }
+  })
 }

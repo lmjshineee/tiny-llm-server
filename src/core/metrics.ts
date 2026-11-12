@@ -71,6 +71,7 @@ export function toRequestOutcome(request: RequestView): RequestOutcome {
     maxNewTokens: request.maxNewTokens,
     timestamps: { arrivedAt, admittedAt, prefillStartedAt, firstTokenAt, finishedAt },
     outputTokens: request.outputTokens,
+    prefixHitTokens: request.prefixHitTokens ?? 0,
     ttftMs: firstTokenAt - arrivedAt,
     tpotMs,
     e2eMs: finishedAt - arrivedAt,
@@ -92,9 +93,15 @@ export function summarizeOutcomes(
   const ttftValues: number[] = []
   const tpotValues: number[] = []
   const e2eValues: number[] = []
+  let promptTokens = 0
+  let prefixHitTokens = 0
+  let prefixHitRequests = 0
 
   for (const outcome of outcomes) {
     outputTokens += outcome.outputTokens
+    promptTokens += outcome.promptTokens
+    prefixHitTokens += outcome.prefixHitTokens
+    if (outcome.prefixHitTokens > 0) prefixHitRequests += 1
     firstArrivalMs = Math.min(firstArrivalMs, outcome.arrivalTime)
     lastFinishMs = Math.max(lastFinishMs, outcome.timestamps.finishedAt)
     ttftValues.push(outcome.ttftMs)
@@ -129,8 +136,22 @@ export function summarizeOutcomes(
     e2eMs: summarizeValues(e2eValues),
     totalSteps: steps.length,
     avgDecodeBatchSize: decodeSteps > 0 ? decodedTokens / decodeSteps : 0,
+    prefixCache: {
+      hitRequests: prefixHitRequests,
+      totalRequests: completed,
+      hitTokens: prefixHitTokens,
+      totalPromptTokens: promptTokens,
+      requestHitRate: completed > 0 ? prefixHitRequests / completed : 0,
+      tokenHitRate: promptTokens > 0 ? prefixHitTokens / promptTokens : 0,
+    },
     kvPeakAllocatedBlocks: cache.peakAllocatedBlocks,
     kvPeakReservedBlocks: cache.peakReservedBlocks,
+    kvPeakCachedBlocks: cache.peakCachedBlocks,
+    kvPeakPhysicalBlocks: cache.peakPhysicalBlocks,
+    kvPeakLogicalBlocks: cache.peakLogicalBlocks,
+    kvPeakSharedBlocks: cache.peakSharedBlocks,
     kvPeakUtilization: cache.totalBlocks > 0 ? cache.peakAllocatedBlocks / cache.totalBlocks : 0,
+    kvPeakPhysicalUtilization:
+      cache.totalBlocks > 0 ? cache.peakPhysicalBlocks / cache.totalBlocks : 0,
   }
 }

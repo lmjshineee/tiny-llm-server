@@ -139,7 +139,7 @@ function parseArgs(argv: readonly string[]): CliOptions {
 }
 
 function usage(): string {
-  return `LLM Serving Lab — Phase 2 prefix cache
+  return `LLM Serving Lab — Phase 3 scheduler + prefix cache
 
 Usage:
   pnpm demo [options]
@@ -281,7 +281,7 @@ function printPrefixStats(options: CliOptions, runs: readonly SimulationResult[]
 }
 
 function printScenario(options: CliOptions): void {
-  process.stdout.write('LLM Serving Lab · Phase 2 prefix cache\n')
+  process.stdout.write('LLM Serving Lab · Phase 3 scheduler + prefix cache\n')
   process.stdout.write('==================================================\n')
   process.stdout.write('SIMULATED — no model is executed and no GPU/NPU is used.\n\n')
   process.stdout.write(

@@ -18,3 +18,7 @@ demo-results.json
 
 # generated CI artifact
 prefix-results.json
+
+# benchmark artifacts
+bench-results.json
+bench-smoke.json

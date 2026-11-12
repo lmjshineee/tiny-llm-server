@@ -1,6 +1,6 @@
 {
   "name": "llm-serving-lab",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "An event-driven, testable lab for LLM inference request scheduling on Apple Silicon.",
@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test",
+    "bench": "tsx src/cli/bench.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

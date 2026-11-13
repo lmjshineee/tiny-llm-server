@@ -37,6 +37,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Build web visualizer
+        run: pnpm build:web
+
       - name: Demo smoke test (simulated)
         run: |
           pnpm demo --json > demo-results.json

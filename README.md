@@ -3,10 +3,10 @@
 > A deterministic, event-driven lab for understanding LLM request scheduling on a 16 GB
 > Apple Silicon laptop — without running a model or owning a GPU.
 
-**Phase 3 status:** event-driven simulator, FCFS and continuous batching, paged KV cache with
+**Phase 4 status:** event-driven simulator, FCFS and continuous batching, paged KV cache with
 an optional retained prefix cache, seeded workload generator, CLI comparison, a reproducible
-benchmark matrix with versioned JSON output, unit/property tests, and CI. The React visualizer
-is next.
+benchmark matrix with versioned JSON output, and a React trace visualizer. Hardening and OSS
+polish are next.
 
 > [!IMPORTANT]
 > **Everything here is simulated.** No transformer is executed, no CUDA/Metal/Ascend runtime is
@@ -30,7 +30,8 @@ This project isolates that question:
   P95/P99 latency under the same seed.
 - A benchmark harness with five scenarios, a scheduler/batch/chunk/KV matrix, and a versioned
   deterministic JSON report.
-- A testable core with no UI dependency, ready to feed a React visualizer.
+- A headless core plus a React visualizer for timeline playback, queue/request states, KV
+  occupancy, and FCFS-vs-continuous-batching comparison.
 
 ## Quick start
 
@@ -44,7 +45,9 @@ pnpm demo                 # run both schedulers on the default seeded workload
 pnpm demo --prefix-cache  # enable shared-prefix workload + retained prefix cache
 pnpm bench                # 80-run scenario matrix -> bench-results.json
 pnpm bench --smoke --json # fast deterministic matrix for CI/scripts
-pnpm test                 # unit + property tests
+pnpm dev:web              # Vite dev server at http://localhost:5173
+pnpm build:web            # production visualizer bundle -> dist-web/
+pnpm test                 # unit, property, and UI tests
 pnpm typecheck            # strict TypeScript
 pnpm check                # typecheck + tests
 ```
@@ -63,13 +66,48 @@ pnpm bench --out bench-results.json
 pnpm bench --help
 ```
 
+## Visualizer
+
+The React app is a thin consumer of `SimulationResult`; the scheduler core stays headless.
+
+<img src="docs/visualizer-bursty.png" alt="Screenshot of the simulated LLM serving visualizer showing a bursty scenario, performance comparison, timeline, 24 queued requests, 16 running requests, and KV cache occupancy" width="100%" />
+
+*The bursty scenario at step 194/555. Every number is simulated.*
+
+- Scenario, seed, batch-size, and KV-capacity controls; runs both policies against identical
+  requests.
+- Comparison of throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit rate, and KV peaks.
+- Step timeline with playback and scheduler tabs.
+- Waiting queue, running prefill/decode states, per-request prompt/output progress, prefix hits,
+  and logical block counts.
+- Paged KV occupancy (active/retained/shared/reserved), a capacity map, and prefix-cache stats.
+
+A prefix-cache view is available at
+[`docs/visualizer-prefix.png`](docs/visualizer-prefix.png). Start the app with:
+
+```bash
+pnpm dev:web                 # http://localhost:5173
+pnpm build:web               # production bundle -> dist-web/
+pnpm preview:web             # preview the production build
+```
+
+Deep links initialize the app from the URL:
+
+```text
+http://localhost:5173/?scenario=prefix-heavy&tab=continuous-batching&step=0.8&seed=42
+```
+
+`scenario`, `seed`, `batch` (4/8/16), `kv` (512/1024/2048), `tab` (`fcfs`/`continuous-batching`),
+and `step` (0..1 fraction of the trace) are supported. The UI stores occupancy aggregates, not
+physical block IDs, so the KV map is explicitly labeled as aggregated.
+
 ## Example output
 
 Captured on 2026-11-12 from the default scenario. **Every number below is simulated and is
 not a hardware measurement.**
 
 ```text
-LLM Serving Lab · Phase 3 scheduler + prefix cache
+LLM Serving Lab · Phase 4 scheduler + prefix cache
 ==================================================
 SIMULATED — no model is executed and no GPU/NPU is used.
 
@@ -164,7 +202,7 @@ pnpm bench --smoke --json                    # CI smoke: 2 runs, stdout JSON
 Captured output from `pnpm bench` (all numbers simulated):
 
 ```text
-LLM Serving Lab · Phase 3 benchmark harness
+LLM Serving Lab · Phase 4 benchmark harness
 ==================================================
 SIMULATED — no model is executed and no GPU/NPU is used.
 
@@ -230,6 +268,9 @@ workload generator ──► event-driven simulator ──► results (requests,
   prefill → first-token path.
 - **Cost model:** step latency is a documented analytical formula, not a black box. Prefill is
   linear in tokens; decode has a fixed base cost plus a small per-sequence cost.
+- **Visualizer:** imports the headless core, runs both policies against identical requests,
+  reconstructs request progress from the step trace, and renders timeline/comparison/KV panels.
+  It stores occupancy aggregates, not physical block IDs.
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) for the state machine, invariants, formulas, and design
 decisions. The current milestone plan is in [TASKS.md](TASKS.md).
@@ -247,7 +288,11 @@ src/core/            pure simulator and scheduling logic (no DOM/React/Node APIs
   cost-model.ts      synthetic latency model
 src/cli/demo.ts      comparison CLI (Node)
 src/cli/bench.ts     benchmark matrix CLI + JSON writer (Node)
-test/                unit tests, property tests, benchmark and scenario tests
+src/app/             React visualizer: App, components, trace reconstruction, styles
+index.html           Vite entry document
+vite.config.ts       Vite/React build config
+test/                unit, property, benchmark, timeline, and UI tests
+docs/                screenshots used by this README
 ARCHITECTURE.md      design, invariants, trade-offs, limitations
 TASKS.md             milestone plan and verification record
 ```
@@ -255,19 +300,21 @@ TASKS.md             milestone plan and verification record
 ## Testing and CI
 
 ```text
-11 test files, 77 tests (as of Phase 3)
+13 test files, 83 tests (as of Phase 4)
 - exact scheduler and engine timing tests
 - KV allocation/free/capacity tests
 - prefix sharing, retention, contiguous-hit, and LRU-eviction tests
 - fast-check property tests for allocator/prefix invariants and end-to-end simulations
 - deterministic seeded workload tests
 - benchmark schema, determinism, matrix, and scenario tests
+- timeline reconstruction and jsdom UI/deep-link tests
 - a scenario regression test for the headline FCFS vs continuous-batching comparison
 ```
 
-`.github/workflows/ci.yml` runs install, typecheck, tests, and JSON smoke tests for the default
-demo, prefix cache, and benchmark harness on Node 24. This checkout has no GitHub remote yet,
-so the workflow has not executed on GitHub; the same commands pass locally.
+`.github/workflows/ci.yml` runs install, typecheck, tests, the Vite production build, and JSON
+smoke tests for the default demo, prefix cache, and benchmark harness on Node 24. This checkout
+has no GitHub remote yet, so the workflow has not executed on GitHub; the same commands pass
+locally. The UI has also been rendered and screenshotted with local headless Chrome.
 
 ## Roadmap
 
@@ -276,8 +323,8 @@ so the workflow has not executed on GitHub; the same commands pass locally.
 | 1 | Simulator, FCFS + continuous batching, paged KV, metrics, tests, CI, docs | ✅ Done |
 | 2 | Optional prefix cache with block sharing, retention, hit/memory statistics | ✅ Done |
 | 3 | Benchmark harness, scenario matrix, P99 reporting, versioned JSON export | ✅ Done |
-| 4 | React visualizer: timeline, queue, request states, KV blocks, charts | ⏳ Next |
-| 5 | Hardening: coverage thresholds, more invariants, docs polish | ⏳ Planned |
+| 4 | React visualizer: timeline, queue, request states, KV occupancy, comparison | ✅ Done |
+| 5 | Hardening: coverage thresholds, more invariants, docs polish | ⏳ Next |
 
 ## Engineering principles
 
@@ -293,14 +340,18 @@ so the workflow has not executed on GitHub; the same commands pass locally.
 这是一个**纯模拟**的大模型推理调度实验室：在 Apple Silicon 16 GB 笔记本上也能运行，
 不加载模型、不需要 GPU，所有性能数字都来自文档化的合成延迟模型，不是硬件实测。
 
-第三阶段已完成：在事件驱动模拟器、FCFS 与 Continuous Batching、分页 KV Cache、可选
-Prefix Cache 之上，加入了可复现的 Benchmark Harness——5 个场景 × 调度器/批大小/prefill
-chunk/KV 容量的矩阵、P99 指标、带 schema 版本与 seed 的确定性 JSON 报告。当前共有
-11 个测试文件、77 个单元与属性测试。React 可视化将在下一阶段实现。
+第四阶段已完成：新增 React 可视化前端——同负载对比 FCFS/Continuous Batching 的吞吐与
+P50/P95/P99 延迟，按 step 回放时间轴，展示等待队列、running 请求的 prefill/decode 状态、
+Prompt/Output 进度、Prefix 命中与 KV 占用（active/retained/shared/reserved），并明确标注
+所有数字均为模拟值。当前共有 13 个测试文件、83 个单元/属性/UI 测试。
 
 ```bash
-pnpm install && pnpm demo --prefix-cache && pnpm bench && pnpm test
+pnpm install && pnpm dev:web     # http://localhost:5173
+pnpm demo --prefix-cache && pnpm bench && pnpm test
 ```
+
+UI 截图见 `docs/visualizer-bursty.png` 与 `docs/visualizer-prefix.png`；KV 容量图是聚合
+占用，不是物理 block ID。
 
 ## License
 

@@ -158,23 +158,54 @@ Commits:
 - FCFS batch/KV matrix cells are often behaviorally identical because FCFS is sequential.
   This is expected and useful as an invariance check.
 
-## M4 — React Visualizer ⏳
+## M4 — React Visualizer ✅
 
-Goal: visualize queueing, request states, KV block ownership, and metric comparisons.
+Goal: visualize queueing, request states, KV occupancy, and metric comparisons while keeping
+the scheduler core headless.
 
-- [ ] Vite + React + TypeScript app importing `src/core` directly.
-- [ ] Scenario controls (seed, load, batch size, KV capacity, prefix cache toggle later).
-- [ ] Timeline playback of steps with play/pause/scrub.
-- [ ] Queue and running tables with request states and per-request TTFT/TPOT.
-- [ ] KV block grid showing free/reserved/allocated/shared blocks.
-- [ ] Comparison charts for throughput, TTFT, TPOT, E2E P50/P95, with simulated-data banner.
-- [ ] Component tests and a production build check in CI.
-- [ ] Core stays headless; UI only consumes `SimulationResult`.
+### Delivered
 
-Acceptance: the app runs locally, is usable at 1280×800, and never presents simulated numbers
-without the disclaimer.
+- [x] Vite + React + TypeScript app importing `src/core` directly.
+- [x] Controls for scenario, seed, max batch size, and KV capacity; both policies run against
+      identical requests and engine config.
+- [x] Timeline playback (play/pause/scrub), scheduler tabs, and per-step timing/token chips.
+- [x] Waiting queue and running prefill/decode states with prompt/output progress, prefix-hit
+      badges, and logical block counts.
+- [x] Per-request finished-request table with TTFT, TPOT, E2E, and prefix-hit tokens.
+- [x] KV occupancy from per-step snapshots: active, retained, shared, logical, reserved,
+      available, and an explicitly aggregate capacity map. Physical block IDs are not traced.
+- [x] Comparison of throughput, output throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit rate,
+      and KV peaks, with simulated-data banners.
+- [x] Deep links for scenario, seed, batch, KV, tab, and step fraction.
+- [x] jsdom + Testing Library tests for rendering, reruns, scrubbing, and deep links.
+- [x] Vite production build in CI; screenshots verified with local headless Chrome at 1440,
+      1280, and 820 px widths.
+- [x] Core stays headless; the UI only consumes results and trace snapshots.
 
-## M5 — Hardening and OSS polish ☐
+### Verification record (2026-11-13, Phase 4)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Types | `pnpm typecheck` | pass |
+| Tests | `pnpm test` | 13 files, 83 tests, all pass |
+| Web build | `pnpm build:web` | pass (`dist-web/`) |
+| UI render | local Vite preview + headless Chrome | screenshots in `docs/` |
+| Deep links | `?scenario=prefix-heavy&tab=fcfs` test | pass |
+| CI workflow | `.github/workflows/ci.yml` | includes `pnpm build:web`; not run on GitHub (no remote) |
+
+Commits:
+- `feat: add React scheduler visualizer`
+- `test: cover visualizer timeline, UI, and deep links`
+- `docs: document visualizer and update Phase 4 status`
+
+### Honest limitations
+
+- The KV map is aggregate occupancy, not physical block IDs; the trace stores snapshots.
+- Simulations run synchronously on the main thread; no Web Worker yet.
+- The UI uses the five benchmark scenarios; arbitrary prompt text is not supported.
+- Screenshots contain simulated values and are labeled accordingly.
+
+## M5 — Hardening and OSS polish ⏳
 
 - [ ] Coverage thresholds and CI reporting.
 - [ ] Optional ESLint/Prettier decision and formatting check.
@@ -213,3 +244,6 @@ without the disclaimer.
 - `feat: add deterministic benchmark harness and scenario matrix`
 - `test: cover benchmark schema, matrix, and determinism`
 - `docs: document benchmark harness and update Phase 3 status`
+- `feat: add React scheduler visualizer`
+- `test: cover visualizer timeline, UI, and deep links`
+- `docs: document visualizer and update Phase 4 status`

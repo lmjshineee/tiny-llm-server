@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 3 (simulator, prefix cache, benchmark harness, CLI). The web visualizer is
-planned, not implemented.
+Status: Phase 4 (simulator, prefix cache, benchmark harness, CLI, React visualizer).
+Hardening and OSS polish are next.
 
 ## 1. Purpose and scope
 
@@ -26,12 +26,13 @@ The lab is designed to answer questions such as:
 - No transformer weights are loaded. No GPU, CUDA, Metal, or Ascend runtime is used.
 - The workload is synthetic: Poisson arrivals, clamped-normal token counts, and declared
   shared-prefix identities (there is no real prompt text to hash).
+- The visualizer renders those simulated results; it does not run a model.
 
 ### What is real
 
 - The event loop, request state machine, schedulers, KV allocator, capacity checks, metric
   aggregation, and test suite are real software. The numbers are derived from them.
-- The same core will drive the React visualizer in a later phase, so UI and scheduling logic
+- The React visualizer consumes the same core and result types, so UI and scheduling logic
   cannot drift apart.
 
 ## 2. Constraints
@@ -54,7 +55,7 @@ flowchart LR
   K["Paged KV cache<br/>reservations + lazy blocks +<br/>ref-counted prefix blocks"]
   M["Metrics<br/>TTFT / TPOT / E2E / P95 + prefix hits"]
   C["CLI comparison<br/>same workload, both policies"]
-  U["React visualizer<br/>(Phase 4)"]
+  U["React visualizer<br/>(Phase 4: timeline + KV + comparison)"]
   P["Prefix cache<br/>(Phase 2: retention + LRU)"]
   B["Benchmark harness<br/>scenarios × matrix × schema"]
   J["Deterministic JSON report<br/>schema 1.0"]
@@ -66,15 +67,15 @@ flowchart LR
   K -- "CacheView" --> S
   E --> M
   M --> C
-  M -. "SimulationResult" .-> U
-  E -. "step trace" .-> U
+  M --> U
+  E -- "SimulationResult + step/cache trace" --> U
   P --> K
   M --> B
   B --> J
 ```
 
 The core (`src/core`) has no DOM, React, or Node-only dependencies. The CLI is a thin adapter.
-A future web app can import the exact same types and results.
+The Vite/React app imports those types and results directly.
 
 ## 4. Event-driven simulation
 
@@ -197,6 +198,9 @@ Admission is deliberately strict FIFO: a head-of-line request that does not fit 
 headroom blocks later, smaller requests. That is a policy choice, not an engine limitation, and
 keeps the comparison with FCFS clean. Prefix-aware or size-aware admission is a later exercise.
 
+Each `StepRecord` includes a KV snapshot (active, retained, logical, shared, reserved,
+available blocks) so the visualizer can render occupancy without retaining per-block history.
+
 ### Why TPOT can get worse
 
 Batching raises aggregate throughput and usually improves TTFT under load, but a decode step
@@ -232,7 +236,7 @@ higher throughput. This trade-off is intentional and visible.
 | `reservedBlocks` | Worst-case blocks promised to active requests. |
 | `availableBlocks` | `totalBlocks - reservedBlocks`; the headroom admission control uses. |
 | `freeAllocatedBlocks` | `totalBlocks - physicalBlocks`; physically free right now. |
-| `peak*` | High-water marks used by the summary and future UI. |
+| `peak*` | High-water marks used by the summary and the visualizer. |
 
 Invariants (checked by `cache.validate()` in tests, property tests, and at the end of every
 simulation):
@@ -381,7 +385,7 @@ The report includes:
 - The seed, normalized matrix axes, every workload config, and every engine config.
 - Per-run summaries: throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit metrics, KV peaks.
 - No wall-clock timestamp, so identical options produce byte-identical JSON.
-- No per-request traces or steps; those stay in the live simulator for the future UI. The report
+- No per-request traces or steps; those stay in the live simulator for the web UI. The report
   is summary-only to stay small and stable.
 
 `pnpm bench` writes `bench-results.json`; `pnpm bench --smoke --json` emits a two-run report to
@@ -389,7 +393,36 @@ stdout for CI. `--out`, `--scenario` (repeatable), `--seed`, and the three matri
 available from the CLI. A benchmark report is a simulation artifact and is never presented as
 a hardware measurement.
 
-## 10. Design decisions
+## 10. Web visualizer
+
+`src/app/` is a Vite + React + TypeScript app. It imports `runSimulation`, scenario helpers, and
+result types from `src/core`; it does not reimplement scheduling or cache accounting.
+
+- **Run controls:** scenario, seed, max batch size, and KV capacity. Both policies run against
+  the same generated requests and engine config.
+- **Comparison:** throughput, output throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit rate,
+  and KV peaks, with a table and headline bars.
+- **Timeline:** per-step scrub and playback. Scheduler tabs switch between FCFS and continuous
+  batching traces.
+- **Request reconstruction:** `buildRequestHistories` consumes the step trace once and records
+  per-request progress; `deriveStepView` binary-searches that history at the selected step and
+  derives waiting/prefill/decode/finished states. At most one pass over the trace is needed per
+  run, not per render.
+- **KV view:** uses `StepRecord.cache` for exact aggregate occupancy and shows an explicitly
+  labeled capacity map. The trace does not store physical block IDs, so the map is aggregate,
+  not a block-ownership diagram.
+- **Deep links:** URL parameters initialize scenario, seed, batch, KV, scheduler tab, and step
+  fraction for reproducible screenshots and sharing.
+- **Honesty:** a permanent simulated banner, synthetic model labels, and explicit caveats appear
+  in the hero, comparison panel, KV panel, and footer.
+- **Tests/build:** jsdom + Testing Library cover rendering, reruns, timeline scrubbing, and deep
+  links; Vite production build runs in CI. The app was also rendered and screenshotted with
+  local headless Chrome during development.
+
+The UI runs simulations synchronously on the main thread. Current scenarios complete quickly,
+but a Web Worker and streaming traces are a natural next step for very large runs.
+
+## 11. Design decisions
 
 | Decision | Alternatives considered | Choice and trade-off |
 | --- | --- | --- |
@@ -402,9 +435,10 @@ a hardware measurement.
 | Chunked prefill | Prefill whole prompts only | Keeps per-step latency and token budget bounded; introduces prefill/decode interference. |
 | Analytical cost model | Microbenchmark traces | Runs anywhere, reproducible, no hardware claims. Must be replaced for quantitative conclusions. |
 | Benchmark matrix + versioned JSON | Ad-hoc one-off runs | Same scenarios/seed produce byte-identical reports; schema and cost-model versions make changes explicit. Summary-only by design. |
+| Headless core + thin React UI | UI owns scheduling state | Core stays testable and UI-independent; UI reconstructs request/KV views from trace snapshots. Aggregate KV map is the trade-off for trace size. |
 | FIFO admission only | Shortest-job-first, prefix-aware | Keeps FCFS vs batching comparison controlled; advanced policies are extensions. |
 
-## 11. Extension points
+## 12. Extension points
 
 ### Prefix-aware admission and real hashing
 
@@ -421,19 +455,21 @@ a hardware measurement.
 - Add scenario editing while keeping `schemaVersion` explicit.
 - Optionally include sampled step traces in a separate artifact; keep the summary report stable.
 
-### React visualizer
+### Visualizer enhancements
 
-- Vite + React + TypeScript, importing `src/core`.
-- Timeline playback of `SimulationResult.steps`.
-- Queue and request-state table; KV block grid; summary comparison charts.
-- Core remains headless: the UI only reads results and never schedules requests itself.
+- Move large simulations to a Web Worker or stream steps to avoid main-thread work.
+- Add an optional per-block ownership trace for a true physical KV block map (at a memory cost).
+- Import benchmark JSON reports for side-by-side scenario comparison without rerunning.
+- Add mobile layout polish and automated screenshot/visual regression tests.
+- Add an accessible keyboard overview of the timeline and request table.
 
 ### UI decoupling
 
 `src/core` must not import DOM APIs, React, or Node built-ins. The CLI may use Node APIs. Keep
-new interfaces JSON-serializable so the browser can consume them without adapters.
+new interfaces JSON-serializable so the browser can consume them without adapters. The React app
+must never import engine internals or duplicate scheduler logic.
 
-## 12. Known limitations
+## 13. Known limitations
 
 - No real model execution, GPU/NPU, CUDA, Metal, or Ascend integration.
 - No preemption, swapping, or failure injection; KV admission remains worst-case.
@@ -447,9 +483,12 @@ new interfaces JSON-serializable so the browser can consume them without adapter
   variance.
 - Benchmark reports intentionally omit per-request traces and step timelines; use the live
   simulator or a future artifact for those.
+- The visualizer shows aggregate KV occupancy, not physical block ownership, because only cache
+  snapshots are stored per step.
+- Simulations run synchronously in the browser; no streaming or worker offload yet.
 - Single-node, single-model, homogeneous requests.
 
-## 13. References
+## 14. References
 
 - vLLM / PagedAttention: <https://arxiv.org/abs/2309.06180>
 - Orca continuous batching: <https://www.usenix.org/conference/osdi22/presentation/yu>

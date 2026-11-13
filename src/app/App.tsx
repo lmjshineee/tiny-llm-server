@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listBenchmarkScenarios } from '../core/index'
+import { BeginnerGuide } from './components/BeginnerGuide'
 import { ComparisonPanel } from './components/ComparisonPanel'
 import { ControlPanel } from './components/ControlPanel'
 import { KvPanel } from './components/KvPanel'
 import { RequestBoard } from './components/RequestBoard'
 import { TimelinePanel } from './components/TimelinePanel'
+import { I18nProvider, scenarioDescriptionKey, useI18n } from './lib/i18n'
 import { DEFAULT_LAB_CONTROLS, runLab } from './lib/lab'
 import type { LabControls, LabRun, SchedulerTab } from './lib/lab'
 import { buildRequestHistories, deriveStepView, suggestedStepIndex } from './lib/timeline'
@@ -57,6 +59,15 @@ function readInitialStepFraction(): number {
 }
 
 export function App() {
+  return (
+    <I18nProvider>
+      <LabApp />
+    </I18nProvider>
+  )
+}
+
+function LabApp() {
+  const { language, setLanguage, t } = useI18n()
   const [controls, setControls] = useState<LabControls>(readInitialControls)
   const [lab, setLab] = useState<LabRun>(() => runLab(readInitialControls()))
   const [error, setError] = useState<string | null>(null)
@@ -135,37 +146,54 @@ export function App() {
     <main className="app-shell">
       <header className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">LLM Serving Lab · Phase 4 visualizer</p>
-          <h1>Inference scheduling, visualized.</h1>
-          <p className="lede">
-            Step through an event-driven serving simulation. Compare sequential FCFS with continuous
-            batching, inspect queueing and request phases, and watch a paged KV cache fill up and
-            share prefix blocks.
-          </p>
+          <p className="eyebrow">{t('app.eyebrow')}</p>
+          <h1>{t('app.title')}</h1>
+          <p className="lede">{t('app.lede')}</p>
           <div className="badge-row">
-            <span className="badge badge-warn">SIMULATED</span>
-            <span className="badge badge-muted">no model</span>
-            <span className="badge badge-muted">no GPU / NPU</span>
-            <span className="badge badge-muted">synthetic latency model</span>
+            <span className="badge badge-warn">{t('app.badge.simulated')}</span>
+            <span className="badge badge-muted">{t('app.badge.noModel')}</span>
+            <span className="badge badge-muted">{t('app.badge.noHardware')}</span>
+            <span className="badge badge-muted">{t('app.badge.synthetic')}</span>
           </div>
         </div>
         <div className="hero-aside">
-          <p className="aside-label">Current run</p>
+          <fieldset className="lang-switch">
+            <legend className="sr-only">{t('app.language')}</legend>
+            <button
+              type="button"
+              className={language === 'zh' ? 'lang-active' : ''}
+              aria-pressed={language === 'zh'}
+              onClick={() => setLanguage('zh')}
+            >
+              {t('app.language.zh')}
+            </button>
+            <button
+              type="button"
+              className={language === 'en' ? 'lang-active' : ''}
+              aria-pressed={language === 'en'}
+              onClick={() => setLanguage('en')}
+            >
+              {t('app.language.en')}
+            </button>
+          </fieldset>
+          <p className="aside-label">{t('app.currentRun')}</p>
           <strong>{lab.controls.scenario}</strong>
-          <span>seed {lab.controls.seed}</span>
-          <span>{formatCount(lab.input.requests.length)} requests</span>
+          <span>{t('app.seed', { seed: lab.controls.seed })}</span>
+          <span>{t('app.requests', { count: formatCount(lab.input.requests.length) })}</span>
           <span>
-            batch {lab.engine.maxBatchSize} · KV {lab.engine.kv.totalBlocks} blocks
+            {t('app.batchKv', {
+              batch: lab.engine.maxBatchSize,
+              kv: lab.engine.kv.totalBlocks,
+            })}
           </span>
         </div>
       </header>
 
       <div className="disclaimer" role="note">
-        <strong>Simulation-only.</strong> Every latency, throughput, and cache number below is
-        produced by a synthetic analytical cost model. No model is executed and no Apple Silicon,
-        CUDA, or Ascend hardware performance is being measured. Prefix identities are synthetic
-        keys, not hashes of real prompt tokens.
+        <strong>{t('app.disclaimer.strong')}</strong> {t('app.disclaimer.body')}
       </div>
+
+      <BeginnerGuide />
 
       <ControlPanel
         controls={controls}
@@ -177,18 +205,20 @@ export function App() {
 
       <div className="scenario-strip">
         <div>
-          <span className="strip-label">Scenario</span>
-          <strong>{lab.input.description}</strong>
+          <span className="strip-label">{t('app.strip.scenario')}</span>
+          <strong>{t(scenarioDescriptionKey(lab.controls.scenario))}</strong>
         </div>
         <div>
-          <span className="strip-label">Model</span>
-          <strong>none — analytical cost model</strong>
+          <span className="strip-label">{t('app.strip.model')}</span>
+          <strong>{t('app.strip.modelValue')}</strong>
         </div>
         <div>
-          <span className="strip-label">Trace</span>
+          <span className="strip-label">{t('app.strip.trace')}</span>
           <strong>
-            FCFS {formatCount(lab.results.fcfs.steps.length)} steps · CB{' '}
-            {formatCount(lab.results['continuous-batching'].steps.length)} steps
+            {t('app.strip.traceValue', {
+              fcfs: formatCount(lab.results.fcfs.steps.length),
+              cb: formatCount(lab.results['continuous-batching'].steps.length),
+            })}
           </strong>
         </div>
       </div>
@@ -212,14 +242,8 @@ export function App() {
       </div>
 
       <footer className="footer">
-        <p>
-          Headless core: <code>src/core</code> · UI: <code>src/app</code> · All results are
-          reproducible simulations, not benchmarks.
-        </p>
-        <p>
-          Built for the {`${lab.engine.kv.blockSize}`}-token block size; prefix hits are capped to
-          leave at least one prompt token for the normal prefill path.
-        </p>
+        <p>{t('app.footer.core')}</p>
+        <p>{t('app.footer.note', { blockSize: lab.engine.kv.blockSize })}</p>
       </footer>
     </main>
   )

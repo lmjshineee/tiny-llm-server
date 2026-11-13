@@ -6,6 +6,7 @@ import { App } from '../src/app/App'
 
 afterEach(() => {
   cleanup()
+  window.localStorage.clear()
   window.history.replaceState({}, '', '/')
 })
 
@@ -44,6 +45,22 @@ describe('visualizer app', () => {
       'aria-pressed',
       'true',
     )
+  })
+
+  it('supports Chinese and a beginner guide with a language switch', () => {
+    window.history.replaceState({}, '', '/?lang=zh')
+    render(<App />)
+
+    expect(document.documentElement.lang).toBe('zh-CN')
+    expect(screen.getByRole('heading', { name: /把推理调度/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /第一次来/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'EN' })).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'EN' }))
+
+    expect(screen.getByRole('heading', { name: /Inference scheduling/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Understand the lab/ })).toBeInTheDocument()
+    expect(document.documentElement.lang).toBe('en')
   })
 
   it('scrubs the timeline by step', () => {

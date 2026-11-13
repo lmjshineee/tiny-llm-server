@@ -1,3 +1,4 @@
+import { useI18n } from '../lib/i18n'
 import type { RequestTimelineState, StepView } from '../lib/timeline'
 import { formatCount, formatMs, formatPercent, formatTokens } from '../lib/format'
 
@@ -6,11 +7,13 @@ interface RequestBoardProps {
 }
 
 export function RequestBoard({ view }: RequestBoardProps) {
+  const { t } = useI18n()
+
   if (view === null) {
     return (
       <section className="panel request-board" aria-labelledby="request-board-title">
-        <h2 id="request-board-title">Requests</h2>
-        <p className="empty-state">No simulation steps to display.</p>
+        <h2 id="request-board-title">{t('request.title')}</h2>
+        <p className="empty-state">{t('request.noSteps')}</p>
       </section>
     )
   }
@@ -19,71 +22,80 @@ export function RequestBoard({ view }: RequestBoardProps) {
     <section className="panel request-board" aria-labelledby="request-board-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">At the end of the selected step</p>
-          <h2 id="request-board-title">Queue &amp; request states</h2>
+          <p className="panel-kicker">{t('request.kicker')}</p>
+          <h2 id="request-board-title">{t('request.title')}</h2>
         </div>
         <div className="count-badges">
-          <span className="count-badge">queue {view.waiting.length}</span>
-          <span className="count-badge">running {view.running.length}</span>
-          <span className="count-badge">done {view.finishedCount}</span>
+          <span className="count-badge">{t('request.queue', { count: view.waiting.length })}</span>
+          <span className="count-badge">
+            {t('request.running', { count: view.running.length })}
+          </span>
+          <span className="count-badge">{t('request.done', { count: view.finishedCount })}</span>
         </div>
       </div>
 
       <div className="request-columns">
         <div>
           <h3 className="subheading">
-            Waiting queue <span className="subheading-count">{view.waiting.length}</span>
+            {t('request.waitingTitle')}{' '}
+            <span className="subheading-count">{view.waiting.length}</span>
           </h3>
           {view.waiting.length === 0 ? (
-            <p className="empty-state">No queued requests at this point.</p>
+            <p className="empty-state">{t('request.emptyWaiting')}</p>
           ) : (
-            <ul className="request-list" aria-label="Waiting requests">
+            <ul className="request-list" aria-label={t('request.waitingTitle')}>
               {view.waiting.map((request) => (
                 <WaitingRow key={request.id} request={request} />
               ))}
             </ul>
           )}
           {view.waiting.length > 4 ? (
-            <p className="list-hint">Scroll for all {view.waiting.length} queued requests.</p>
+            <p className="list-hint">
+              {t('request.scrollWaiting', { count: view.waiting.length })}
+            </p>
           ) : null}
         </div>
 
         <div>
           <h3 className="subheading">
-            Running <span className="subheading-count">{view.running.length}</span>
+            {t('request.runningTitle')}{' '}
+            <span className="subheading-count">{view.running.length}</span>
           </h3>
           {view.running.length === 0 ? (
-            <p className="empty-state">No running requests at this point.</p>
+            <p className="empty-state">{t('request.emptyRunning')}</p>
           ) : (
-            <ul className="request-list" aria-label="Running requests">
+            <ul className="request-list" aria-label={t('request.runningTitle')}>
               {view.running.map((request) => (
                 <RunningRow key={request.id} request={request} />
               ))}
             </ul>
           )}
           {view.running.length > 4 ? (
-            <p className="list-hint">Scroll for all {view.running.length} running requests.</p>
+            <p className="list-hint">
+              {t('request.scrollRunning', { count: view.running.length })}
+            </p>
           ) : null}
         </div>
       </div>
 
       <div className="finished-section">
         <h3 className="subheading">
-          Finished at this point <span className="subheading-count">{view.finished.length}</span>
+          {t('request.finishedTitle')}{' '}
+          <span className="subheading-count">{view.finished.length}</span>
         </h3>
         {view.finished.length === 0 ? (
-          <p className="empty-state">No requests have finished yet.</p>
+          <p className="empty-state">{t('request.emptyFinished')}</p>
         ) : (
           <div className="table-scroll finished-table-wrap">
             <table className="finished-table">
-              <caption className="sr-only">Per-request metrics for finished requests</caption>
+              <caption className="sr-only">{t('request.tableCaption')}</caption>
               <thead>
                 <tr>
-                  <th scope="col">Request</th>
+                  <th scope="col">{t('request.request')}</th>
                   <th scope="col">TTFT</th>
                   <th scope="col">TPOT</th>
                   <th scope="col">E2E</th>
-                  <th scope="col">Prefix</th>
+                  <th scope="col">{t('request.prefix')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -100,38 +112,43 @@ export function RequestBoard({ view }: RequestBoardProps) {
             </table>
             {view.finished.length > 12 ? (
               <p className="list-hint">
-                Showing 12 of {view.finished.length} finished requests. All requests contribute to
-                the comparison metrics above.
+                {t('request.finishedHint', { count: view.finished.length })}
               </p>
             ) : null}
           </div>
         )}
       </div>
 
-      <p className="caption">
-        Request state is reconstructed from the step trace. KV blocks in this view are logical
-        per-request usage; physical sharing is summarized in the KV panel.
-      </p>
+      <p className="caption">{t('request.caption')}</p>
     </section>
   )
 }
 
 function WaitingRow({ request }: { readonly request: RequestTimelineState }) {
+  const { t } = useI18n()
   return (
     <li className="request-row">
       <div className="request-main">
         <span className="request-id">{request.id}</span>
-        <span className="state-badge state-waiting">waiting</span>
+        <span className="state-badge state-waiting">{t('request.waitingState')}</span>
       </div>
       <div className="request-meta">
-        <span>{formatTokens(request.promptTokens)} prompt tokens</span>
-        <span>{Math.max(0, request.maxNewTokens - request.outputTokens)} output budget</span>
+        <span>{t('request.promptTokens', { count: formatTokens(request.promptTokens) })}</span>
+        <span>
+          {t('request.outputBudget', {
+            count: Math.max(0, request.maxNewTokens - request.outputTokens),
+          })}
+        </span>
       </div>
     </li>
   )
 }
 
 function RunningRow({ request }: { readonly request: RequestTimelineState }) {
+  const { t } = useI18n()
+  const stateLabel =
+    request.state === 'prefill' ? t('request.prefillState') : t('request.decodeState')
+
   return (
     <li className="request-row">
       <div className="request-main">
@@ -141,16 +158,18 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
             request.state === 'prefill' ? 'state-badge state-prefill' : 'state-badge state-decode'
           }
         >
-          {request.state}
+          {stateLabel}
         </span>
         {request.prefixHitTokens > 0 ? (
-          <span className="state-badge state-prefix">prefix {request.prefixHitTokens} tok</span>
+          <span className="state-badge state-prefix">
+            {t('request.prefixBadge', { count: request.prefixHitTokens })}
+          </span>
         ) : null}
       </div>
 
       <div className="progress-block">
         <div className="progress-label">
-          <span>prompt</span>
+          <span>{t('request.prompt')}</span>
           <span>
             {formatCount(request.prefilledTokens)}/{formatCount(request.promptTokens)} ·{' '}
             {formatPercent(request.promptProgress, 0)}
@@ -166,7 +185,7 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
 
       <div className="progress-block">
         <div className="progress-label">
-          <span>output</span>
+          <span>{t('request.output')}</span>
           <span>
             {formatCount(request.outputTokens)}/{formatCount(request.maxNewTokens)}
           </span>
@@ -180,8 +199,10 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
       </div>
 
       <div className="request-meta">
-        <span>{request.logicalBlocks} logical blocks</span>
-        {request.prefixBlocks > 0 ? <span>{request.prefixBlocks} prefix blocks</span> : null}
+        <span>{t('request.logicalBlocks', { count: request.logicalBlocks })}</span>
+        {request.prefixBlocks > 0 ? (
+          <span>{t('request.prefixBlocks', { count: request.prefixBlocks })}</span>
+        ) : null}
       </div>
     </li>
   )

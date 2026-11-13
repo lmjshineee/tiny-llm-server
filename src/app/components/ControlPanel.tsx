@@ -1,4 +1,5 @@
 import type { BenchmarkScenarioInfo } from '../../core/index'
+import { scenarioDescriptionKey, useI18n } from '../lib/i18n'
 import type { LabControls } from '../lib/lab'
 
 interface ControlPanelProps {
@@ -13,21 +14,20 @@ const BATCH_OPTIONS = [4, 8, 16] as const
 const KV_OPTIONS = [512, 1024, 2048] as const
 
 export function ControlPanel({ controls, scenarios, onChange, onRun, error }: ControlPanelProps) {
+  const { t } = useI18n()
   const update = (patch: Partial<LabControls>): void => {
     onChange({ ...controls, ...patch })
   }
-
-  const scenario = scenarios.find((entry) => entry.name === controls.scenario)
 
   return (
     <section className="panel control-panel" aria-labelledby="controls-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">Experiment</p>
-          <h2 id="controls-title">Configure the simulation</h2>
+          <p className="panel-kicker">{t('controls.kicker')}</p>
+          <h2 id="controls-title">{t('controls.title')}</h2>
         </div>
         <button className="run-button" type="button" onClick={onRun}>
-          Run simulation
+          {t('controls.run')}
         </button>
       </div>
 
@@ -39,7 +39,7 @@ export function ControlPanel({ controls, scenarios, onChange, onRun, error }: Co
         }}
       >
         <label className="field">
-          <span>Scenario</span>
+          <span>{t('controls.scenario')}</span>
           <select
             value={controls.scenario}
             onChange={(event) => update({ scenario: event.target.value })}
@@ -50,11 +50,11 @@ export function ControlPanel({ controls, scenarios, onChange, onRun, error }: Co
               </option>
             ))}
           </select>
-          <small>{scenario?.description}</small>
+          <small>{t(scenarioDescriptionKey(controls.scenario))}</small>
         </label>
 
         <label className="field">
-          <span>Seed</span>
+          <span>{t('controls.seed')}</span>
           <input
             type="number"
             min={0}
@@ -65,43 +65,43 @@ export function ControlPanel({ controls, scenarios, onChange, onRun, error }: Co
               update({ seed: Number.isFinite(value) ? value : 0 })
             }}
           />
-          <small>Same seed → same workload and trace.</small>
+          <small>{t('controls.seedHint')}</small>
         </label>
 
         <label className="field">
-          <span>Max batch size</span>
+          <span>{t('controls.batch')}</span>
           <select
             value={controls.batchSize}
             onChange={(event) => update({ batchSize: Number(event.target.value) })}
           >
             {BATCH_OPTIONS.map((value) => (
               <option key={value} value={value}>
-                {value} sequences
+                {t('controls.batchOption', { count: value })}
               </option>
             ))}
           </select>
-          <small>FCFS is sequential and ignores this setting.</small>
+          <small>{t('controls.batchHint')}</small>
         </label>
 
         <label className="field">
-          <span>KV capacity</span>
+          <span>{t('controls.kv')}</span>
           <select
             value={controls.kvBlocks}
             onChange={(event) => update({ kvBlocks: Number(event.target.value) })}
           >
             {KV_OPTIONS.map((value) => (
               <option key={value} value={value}>
-                {value} blocks
+                {t('controls.kvOption', { count: value })}
               </option>
             ))}
           </select>
-          <small>Worst-case reservations bound concurrency.</small>
+          <small>{t('controls.kvHint')}</small>
         </label>
       </form>
 
       {error !== null ? (
         <p className="form-error" role="alert">
-          {error}
+          {t('controls.error', { message: error })}
         </p>
       ) : null}
     </section>

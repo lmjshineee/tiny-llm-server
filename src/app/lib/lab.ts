@@ -30,17 +30,10 @@ export const DEFAULT_LAB_CONTROLS: LabControls = {
   kvBlocks: 2048,
 }
 
-export const SCHEDULER_TABS: ReadonlyArray<{
-  readonly id: SchedulerTab
-  readonly label: string
-}> = [
-  { id: 'continuous-batching', label: 'Continuous batching' },
-  { id: 'fcfs', label: 'FCFS (sequential)' },
+export const SCHEDULER_TABS: ReadonlyArray<{ readonly id: SchedulerTab }> = [
+  { id: 'continuous-batching' },
+  { id: 'fcfs' },
 ]
-
-export function schedulerLabel(tab: SchedulerTab): string {
-  return SCHEDULER_TABS.find((entry) => entry.id === tab)?.label ?? tab
-}
 
 /** Run both policies on the same scenario requests and engine config. */
 export function runLab(controls: LabControls): LabRun {

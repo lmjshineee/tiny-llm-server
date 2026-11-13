@@ -1,4 +1,5 @@
 import type { SimulationResult } from '../../core/index'
+import { useI18n } from '../lib/i18n'
 import type { StepView } from '../lib/timeline'
 import { formatCount, formatPercent } from '../lib/format'
 
@@ -11,11 +12,13 @@ const CELL_COUNT = 64
 const CELL_IDS = Array.from({ length: CELL_COUNT }, (_, index) => `kv-cell-${index}`)
 
 export function KvPanel({ view, result }: KvPanelProps) {
+  const { t } = useI18n()
+
   if (view === null) {
     return (
       <section className="panel kv-panel" aria-labelledby="kv-title">
-        <h2 id="kv-title">KV cache</h2>
-        <p className="empty-state">No simulation steps to display.</p>
+        <h2 id="kv-title">{t('kv.title')}</h2>
+        <p className="empty-state">{t('kv.noSteps')}</p>
       </section>
     )
   }
@@ -43,11 +46,11 @@ export function KvPanel({ view, result }: KvPanelProps) {
     <section className="panel kv-panel" aria-labelledby="kv-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">Occupancy at the selected step</p>
-          <h2 id="kv-title">Paged KV cache</h2>
+          <p className="panel-kicker">{t('kv.kicker')}</p>
+          <h2 id="kv-title">{t('kv.title')}</h2>
         </div>
         <span className="badge badge-muted">
-          {formatCount(totalBlocks)} blocks × {blockSize} tok
+          {t('kv.blocks', { blocks: formatCount(totalBlocks), tokens: blockSize })}
         </span>
       </div>
 
@@ -68,13 +71,13 @@ export function KvPanel({ view, result }: KvPanelProps) {
         </div>
         <div className="kv-legend">
           <span>
-            <i className="dot dot-active" /> active {formatCount(cache.allocatedBlocks)}
+            <i className="dot dot-active" /> {t('kv.active')} {formatCount(cache.allocatedBlocks)}
           </span>
           <span>
-            <i className="dot dot-retained" /> retained {formatCount(cache.cachedBlocks)}
+            <i className="dot dot-retained" /> {t('kv.retained')} {formatCount(cache.cachedBlocks)}
           </span>
           <span>
-            <i className="dot dot-free" /> free {formatCount(free)}
+            <i className="dot dot-free" /> {t('kv.free')} {formatCount(free)}
           </span>
         </div>
       </div>
@@ -90,54 +93,52 @@ export function KvPanel({ view, result }: KvPanelProps) {
           return <span key={cellId} className={`kv-cell kv-cell-${state}`} />
         })}
       </div>
-      <p className="caption">
-        Capacity map (aggregated; not physical block IDs). Each cell represents a range of blocks.
-        The trace stores occupancy counts, not per-block ownership.
-      </p>
+      <p className="caption">{t('kv.mapCaption')}</p>
 
       <dl className="kv-stats">
         <div>
-          <dt>Active</dt>
+          <dt>{t('kv.active')}</dt>
           <dd>{formatCount(cache.allocatedBlocks)}</dd>
         </div>
         <div>
-          <dt>Retained</dt>
+          <dt>{t('kv.retained')}</dt>
           <dd>{formatCount(cache.cachedBlocks)}</dd>
         </div>
         <div>
-          <dt>Shared</dt>
+          <dt>{t('kv.shared')}</dt>
           <dd>{formatCount(cache.sharedBlocks)}</dd>
         </div>
         <div>
-          <dt>Logical</dt>
+          <dt>{t('kv.logical')}</dt>
           <dd>{formatCount(cache.logicalBlocks)}</dd>
         </div>
         <div>
-          <dt>Reserved</dt>
+          <dt>{t('kv.reserved')}</dt>
           <dd>{formatCount(cache.reservedBlocks)}</dd>
         </div>
         <div>
-          <dt>Available</dt>
+          <dt>{t('kv.available')}</dt>
           <dd>{formatCount(cache.availableBlocks)}</dd>
         </div>
       </dl>
 
       <div className="prefix-summary">
         <div className="prefix-summary-head">
-          <h3>Prefix cache</h3>
-          <span className="mini-pill">{formatPercent(prefix.tokenHitRate)} token hit</span>
+          <h3>{t('kv.prefixTitle')}</h3>
+          <span className="mini-pill">
+            {t('kv.tokenHit', { percent: formatPercent(prefix.tokenHitRate) })}
+          </span>
         </div>
         <p>
-          {prefix.hitRequests}/{prefix.totalRequests} requests reused{' '}
-          {formatCount(prefix.hitTokens)}/{formatCount(prefix.totalPromptTokens)} prompt tokens.
+          {t('kv.prefixSummary', {
+            hitRequests: prefix.hitRequests,
+            totalRequests: prefix.totalRequests,
+            hitTokens: formatCount(prefix.hitTokens),
+            totalPromptTokens: formatCount(prefix.totalPromptTokens),
+          })}
         </p>
-        {prefix.hitTokens === 0 ? (
-          <p className="muted">No prefix hits in this run. Try the prefix-heavy scenario.</p>
-        ) : null}
-        <p className="caption">
-          Physical blocks are shared by reference; logical blocks count a shared block per request.
-          Worst-case reservations still bound admission.
-        </p>
+        {prefix.hitTokens === 0 ? <p className="muted">{t('kv.noHits')}</p> : null}
+        <p className="caption">{t('kv.caption')}</p>
       </div>
     </section>
   )

@@ -1,3 +1,4 @@
+import { useI18n } from '../lib/i18n'
 import type { LabRun } from '../lib/lab'
 import { formatMs, formatPercent, formatRate, formatTokenRate } from '../lib/format'
 
@@ -13,68 +14,69 @@ interface Metric {
 }
 
 export function ComparisonPanel({ lab }: ComparisonPanelProps) {
+  const { t } = useI18n()
   const fcfs = lab.results.fcfs.summary
   const continuous = lab.results['continuous-batching'].summary
   const totalBlocks = lab.engine.kv.totalBlocks
 
   const metrics: Metric[] = [
     {
-      label: 'Throughput',
-      hint: 'completed requests / makespan',
+      label: t('metric.throughput'),
+      hint: t('metric.throughputHint'),
       fcfs: `${formatRate(fcfs.throughputRequestsPerSecond)} req/s`,
       continuous: `${formatRate(continuous.throughputRequestsPerSecond)} req/s`,
     },
     {
-      label: 'Output throughput',
-      hint: 'generated tokens / makespan',
+      label: t('metric.outputThroughput'),
+      hint: t('metric.outputThroughputHint'),
       fcfs: `${formatTokenRate(fcfs.throughputOutputTokensPerSecond)} tok/s`,
       continuous: `${formatTokenRate(continuous.throughputOutputTokensPerSecond)} tok/s`,
     },
     {
-      label: 'TTFT p50',
-      hint: 'arrival → first token',
+      label: t('metric.ttftP50'),
+      hint: t('metric.ttftP50Hint'),
       fcfs: formatMs(fcfs.ttftMs.p50),
       continuous: formatMs(continuous.ttftMs.p50),
     },
     {
-      label: 'TTFT p95',
-      hint: 'tail queue + prefill',
+      label: t('metric.ttftP95'),
+      hint: t('metric.ttftP95Hint'),
       fcfs: formatMs(fcfs.ttftMs.p95),
       continuous: formatMs(continuous.ttftMs.p95),
     },
     {
-      label: 'TPOT p50',
-      hint: 'mean inter-token latency',
+      label: t('metric.tpotP50'),
+      hint: t('metric.tpotP50Hint'),
       fcfs: formatMs(fcfs.tpotMs.p50),
       continuous: formatMs(continuous.tpotMs.p50),
     },
     {
-      label: 'TPOT p95',
-      hint: 'tail inter-token latency',
+      label: t('metric.tpotP95'),
+      hint: t('metric.tpotP95Hint'),
       fcfs: formatMs(fcfs.tpotMs.p95),
       continuous: formatMs(continuous.tpotMs.p95),
     },
     {
-      label: 'E2E p95',
-      hint: 'arrival → final token',
+      label: t('metric.e2eP95'),
+      hint: t('metric.e2eP95Hint'),
       fcfs: formatMs(fcfs.e2eMs.p95),
       continuous: formatMs(continuous.e2eMs.p95),
     },
     {
-      label: 'E2E p99',
-      hint: 'long-tail completion',
+      label: t('metric.e2eP99'),
+      hint: t('metric.e2eP99Hint'),
       fcfs: formatMs(fcfs.e2eMs.p99),
       continuous: formatMs(continuous.e2eMs.p99),
     },
     {
-      label: 'Prefix hit rate',
-      hint: 'prompt tokens reused',
+      label: t('metric.prefixHit'),
+      hint: t('metric.prefixHitHint'),
       fcfs: formatPercent(fcfs.prefixCache.tokenHitRate),
       continuous: formatPercent(continuous.prefixCache.tokenHitRate),
     },
     {
-      label: 'Peak KV',
-      hint: `${totalBlocks} blocks total`,
+      label: t('metric.peakKv'),
+      hint: t('metric.peakKvHint', { blocks: totalBlocks }),
       fcfs: `${fcfs.kvPeakPhysicalBlocks}/${totalBlocks}`,
       continuous: `${continuous.kvPeakPhysicalBlocks}/${totalBlocks}`,
     },
@@ -89,42 +91,50 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
     <section className="panel comparison-panel" aria-labelledby="comparison-title">
       <div className="panel-heading">
         <div>
-          <p className="panel-kicker">Same workload, same cost model</p>
-          <h2 id="comparison-title">Performance comparison</h2>
+          <p className="panel-kicker">{t('comparison.kicker')}</p>
+          <h2 id="comparison-title">{t('comparison.title')}</h2>
         </div>
-        <span className="badge badge-muted">simulated</span>
+        <span className="badge badge-muted">{t('comparison.simulated')}</span>
       </div>
 
       <div className="run-cards">
         <article className="run-card run-card-fcfs">
-          <p className="run-card-label">FCFS sequential</p>
+          <p className="run-card-label">{t('comparison.fcfs')}</p>
           <strong>{formatRate(fcfs.throughputRequestsPerSecond)} req/s</strong>
           <span>
-            {fcfs.completedRequests}/{fcfs.totalRequests} complete · {fcfs.totalSteps} steps
+            {t('comparison.complete', {
+              completed: fcfs.completedRequests,
+              total: fcfs.totalRequests,
+              steps: fcfs.totalSteps,
+            })}
           </span>
         </article>
         <article className="run-card run-card-cb">
-          <p className="run-card-label">Continuous batching</p>
+          <p className="run-card-label">{t('comparison.cb')}</p>
           <strong>{formatRate(continuous.throughputRequestsPerSecond)} req/s</strong>
           <span>
-            {continuous.completedRequests}/{continuous.totalRequests} complete ·{' '}
-            {continuous.totalSteps} steps
+            {t('comparison.complete', {
+              completed: continuous.completedRequests,
+              total: continuous.totalRequests,
+              steps: continuous.totalSteps,
+            })}
           </span>
         </article>
       </div>
 
       <div className="bar-charts">
         <BarPair
-          label="Throughput (req/s)"
+          label={t('comparison.bar.throughput')}
+          directionLabel={t('comparison.higher')}
           fcfsValue={throughputs[0] ?? 0}
           continuousValue={throughputs[1] ?? 0}
           max={throughputMax}
           fcfsLabel={formatRate(throughputs[0] ?? 0)}
           continuousLabel={formatRate(throughputs[1] ?? 0)}
-          higherIsBetter
         />
         <BarPair
-          label="TTFT p95 (ms, shorter is better)"
+          label={t('comparison.bar.ttft')}
+          directionLabel=""
           fcfsValue={ttfts[0] ?? 0}
           continuousValue={ttfts[1] ?? 0}
           max={ttftMax}
@@ -135,14 +145,12 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
 
       <div className="table-scroll">
         <table className="compare-table">
-          <caption className="sr-only">
-            Simulated performance metrics for FCFS and continuous batching
-          </caption>
+          <caption className="sr-only">{t('comparison.tableCaption')}</caption>
           <thead>
             <tr>
-              <th scope="col">Metric</th>
-              <th scope="col">FCFS</th>
-              <th scope="col">Continuous batching</th>
+              <th scope="col">{t('comparison.metric')}</th>
+              <th scope="col">{t('comparison.fcfsShort')}</th>
+              <th scope="col">{t('comparison.cbShort')}</th>
             </tr>
           </thead>
           <tbody>
@@ -160,38 +168,35 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
         </table>
       </div>
 
-      <p className="caption">
-        Lower latency is better; higher throughput is better. These are outputs of a synthetic cost
-        model, not hardware measurements.
-      </p>
+      <p className="caption">{t('comparison.caption')}</p>
     </section>
   )
 }
 
 interface BarPairProps {
   readonly label: string
+  readonly directionLabel: string
   readonly fcfsValue: number
   readonly continuousValue: number
   readonly max: number
   readonly fcfsLabel: string
   readonly continuousLabel: string
-  readonly higherIsBetter?: boolean
 }
 
 function BarPair({
   label,
+  directionLabel,
   fcfsValue,
   continuousValue,
   max,
   fcfsLabel,
   continuousLabel,
-  higherIsBetter = false,
 }: BarPairProps) {
   return (
     <div className="bar-pair">
       <div className="bar-label">
         <span>{label}</span>
-        <span className="bar-direction">{higherIsBetter ? 'higher is better' : ''}</span>
+        <span className="bar-direction">{directionLabel}</span>
       </div>
       <div className="bar-row">
         <span className="bar-name">FCFS</span>

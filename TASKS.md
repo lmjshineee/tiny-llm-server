@@ -218,13 +218,12 @@ Commits:
 - [x] Cost-model assumptions and a measured-profile replacement path documented in
       `ARCHITECTURE.md`.
 - [x] `CONTRIBUTING.md`, issue templates, pull-request template, and `CHANGELOG.md`.
-- [x] GitHub Pages workflow prepared; the Vite build uses relative asset paths.
+- [x] GitHub Pages enabled and deployed; live at <https://lmjshineee.github.io/tiny-llm-server/>.
+      The Vite build uses relative asset paths.
 - [x] Package version `0.5.0`.
 
 ### Remaining (not blocking P0)
 
-- [ ] Public Pages deployment — requires a GitHub remote and enabling Pages → GitHub Actions.
-      The workflow is committed but has not run.
 - [ ] UI Web Worker/streaming for very large traces. Current scenarios finish quickly; the core
       has `maxSteps` / `maxSimTimeMs` guards.
 - [ ] Deeper adversarial scheduler property tests (preemption is not implemented yet).
@@ -240,14 +239,15 @@ Commits:
 | Web build | `pnpm build:web` | pass with relative base |
 | Benchmark schema | `pnpm validate:bench bench-smoke.json` | smoke + full reports pass |
 | CI YAML | local parse | Node 22/24 matrix, 13 steps |
-| Pages workflow | local YAML parse | build/deploy jobs present; not executed |
-| GitHub Actions | remote | not run — no GitHub remote yet |
+| CI | run 43402893903 | success (Node 22/24 matrix) |
+| Pages deployment | run 43402893926 | success; live at https://lmjshineee.github.io/tiny-llm-server/ |
 
 Commits:
 - `chore: add Biome, coverage, and benchmark schema`
 - `test: assert event ordering in randomized simulations`
 - `ci: add Node matrix, schema validation, and Pages workflow`
 - `docs: add contributor docs and update Phase 5 status`
+- `docs: add live demo and CI badges`
 
 ## M6 — Realism and calibration ⏳
 
@@ -295,3 +295,4 @@ Commits:
 - `test: assert event ordering in randomized simulations`
 - `ci: add Node matrix, schema validation, and Pages workflow`
 - `docs: add contributor docs and update Phase 5 status`
+- `docs: add live demo and CI badges`

@@ -11,8 +11,9 @@ default latency and throughput values are synthetic and are not hardware measure
 - Vitest V8 coverage with enforced statement/branch/function/line thresholds.
 - Versioned JSON Schema for benchmark reports, an Ajv validator, and a schema regression test.
 - `CONTRIBUTING.md`, issue templates, pull-request template, and this changelog.
-- GitHub Pages workflow for the static visualizer (prepared; deployment requires a GitHub repo
-  and Pages enabled).
+- GitHub Pages workflow for the static visualizer, deployed at
+  <https://lmjshineee.github.io/tiny-llm-server/>.
+- CI and Pages badges plus a live-demo link in the README.
 - Node 22/24 CI matrix; lint, format check, coverage, schema validation, and static build gates.
 
 ### Changed

@@ -6,7 +6,11 @@
 **Phase 5 (P0) status:** event-driven simulator, FCFS and continuous batching, paged KV cache,
 retained prefix cache, seeded benchmark matrix, React trace visualizer, plus Biome lint/format,
 coverage gates, a versioned benchmark JSON Schema, Node 22/24 CI, and contributor docs.
-Public Pages deployment requires a GitHub remote; it is prepared but not live.
+
+[![CI](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/ci.yml)
+[![Deploy visualizer](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/pages.yml/badge.svg)](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/pages.yml)
+
+**Live demo:** <https://lmjshineee.github.io/tiny-llm-server/>
 
 > [!IMPORTANT]
 > **Everything here is simulated.** No transformer is executed, no CUDA/Metal/Ascend runtime is
@@ -73,6 +77,8 @@ pnpm validate:bench bench-smoke.json   # JSON Schema validation
 ```
 
 ## Visualizer
+
+**Live demo:** <https://lmjshineee.github.io/tiny-llm-server/>
 
 The React app is a thin consumer of `SimulationResult`; the scheduler core stays headless.
 
@@ -327,10 +333,10 @@ TASKS.md             milestone plan and verification record
 coverage, the Vite production build, JSON smoke tests, and benchmark schema validation. The
 coverage gates live in `vitest.config.ts`; the schema lives in `schemas/benchmark-report.schema.json`.
 
-This checkout still has no GitHub remote, so GitHub Actions has not executed remotely and the
-public Pages demo is not live. `.github/workflows/pages.yml` is prepared; after creating a repo,
-push `main`, enable **Settings → Pages → GitHub Actions**, and the workflow will deploy
-`dist-web/`. The visualizer has been rendered locally at 1440, 1280, and 820 px widths.
+CI runs on GitHub Actions for Node 22 and 24. The Pages workflow deploys `dist-web/` on pushes
+to `main`; the live site is <https://lmjshineee.github.io/tiny-llm-server/>. Forks need to enable
+**Settings → Pages → GitHub Actions** before their first deployment. The visualizer has also been
+rendered locally at 1440, 1280, and 820 px widths.
 
 ## Learning track
 
@@ -376,8 +382,8 @@ unless explicitly marked as measured.
 
 第五阶段 P0 已完成：Biome lint/format、Vitest 覆盖率门槛、Node 22/24 CI、benchmark
 JSON Schema 校验、CONTRIBUTING/CHANGELOG/issue 模板，以及 GitHub Pages 静态部署 workflow。
-公开 demo 仍需 GitHub remote 与 Pages 设置；M6（prefix-aware admission/preemption）和小模型
-校准尚未开始。当前共有 14 个测试文件、84 个单元/属性/UI 测试。
+公开 demo 已部署在 <https://lmjshineee.github.io/tiny-llm-server/>。M6（prefix-aware
+admission/preemption）和小模型校准尚未开始。当前共有 14 个测试文件、84 个单元/属性/UI 测试。
 
 ```bash
 pnpm install && pnpm check       # typecheck + lint + tests

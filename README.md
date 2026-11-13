@@ -292,7 +292,7 @@ src/app/             React visualizer: App, components, trace reconstruction, st
 index.html           Vite entry document
 vite.config.ts       Vite/React build config
 test/                unit, property, benchmark, timeline, and UI tests
-docs/                screenshots used by this README
+docs/                screenshots and the learning track
 ARCHITECTURE.md      design, invariants, trade-offs, limitations
 TASKS.md             milestone plan and verification record
 ```
@@ -315,6 +315,22 @@ TASKS.md             milestone plan and verification record
 smoke tests for the default demo, prefix cache, and benchmark harness on Node 24. This checkout
 has no GitHub remote yet, so the workflow has not executed on GitHub; the same commands pass
 locally. The UI has also been rendered and screenshotted with local headless Chrome.
+
+## Learning track
+
+A structured, internship-oriented path for this project: **8 weeks at ~15 hours/week**, covering
+inference fundamentals, scheduling/memory trade-offs, experiments, and portfolio preparation.
+It is a plan, not a claim that M5/M6 are implemented.
+
+- [8-week roadmap and weekly schedule](docs/learning/README.md)
+- [Concepts: prefill/decode, KV math, metrics, queueing, prefix cache](docs/learning/CONCEPTS.md)
+- [Experiment playbook: 10 exercises using this lab](docs/learning/EXPERIMENTS.md)
+- [Internship prep: project pitch, resume, interview questions](docs/learning/INTERNSHIP.md)
+- [Resources: papers, source code, tools, calibration prep](docs/learning/RESOURCES.md)
+- [Notes and experiment templates](docs/learning/NOTES_TEMPLATE.md)
+
+The track is written in Chinese; code, commands, and the rest of the repository remain in
+English. All lab results are simulated unless explicitly marked as measured.
 
 ## Roadmap
 
@@ -352,6 +368,9 @@ pnpm demo --prefix-cache && pnpm bench && pnpm test
 
 UI 截图见 `docs/visualizer-bursty.png` 与 `docs/visualizer-prefix.png`；KV 容量图是聚合
 占用，不是物理 block ID。
+
+配套中文学习文档位于 `docs/learning/`：8 周 × 15 小时的路线，包含概念地图、10 个实验、
+实习/面试准备、论文与源码资源、周记模板。它是学习计划，不代表 M5/M6 已实现。
 
 ## License
 

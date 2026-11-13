@@ -247,3 +247,4 @@ Commits:
 - `feat: add React scheduler visualizer`
 - `test: cover visualizer timeline, UI, and deep links`
 - `docs: document visualizer and update Phase 4 status`
+- `docs: add internship-focused learning track`

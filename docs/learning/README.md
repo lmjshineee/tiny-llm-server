@@ -1,8 +1,9 @@
 # 学习路线：从模拟器到 LLM Infra 实习
 
 > 适用对象：每周约 **15 小时**、准备 8 周、目标为 LLM 推理系统 / AI Infra 实习。
-> 当前项目状态：M0–M4 已完成（模拟器、调度、KV Cache、Prefix Cache、Benchmark、React 可视化，
-> 83 个测试）。**本目录是学习计划，不代表 M5/M6 或真实模型校准已经实现。**
+> 当前项目状态：M0–M4 与 P0 质量收口已完成（模拟器、调度、KV Cache、Prefix Cache、Benchmark、
+> React 可视化、lint/coverage/JSON Schema/CI，84 个测试）。**本目录是学习计划，不代表 M6 或
+> 真实模型校准已经实现。**
 
 ---
 

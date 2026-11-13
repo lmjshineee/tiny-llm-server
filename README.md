@@ -3,10 +3,10 @@
 > A deterministic, event-driven lab for understanding LLM request scheduling on a 16 GB
 > Apple Silicon laptop — without running a model or owning a GPU.
 
-**Phase 4 status:** event-driven simulator, FCFS and continuous batching, paged KV cache with
-an optional retained prefix cache, seeded workload generator, CLI comparison, a reproducible
-benchmark matrix with versioned JSON output, and a React trace visualizer. Hardening and OSS
-polish are next.
+**Phase 5 (P0) status:** event-driven simulator, FCFS and continuous batching, paged KV cache,
+retained prefix cache, seeded benchmark matrix, React trace visualizer, plus Biome lint/format,
+coverage gates, a versioned benchmark JSON Schema, Node 22/24 CI, and contributor docs.
+Public Pages deployment requires a GitHub remote; it is prepared but not live.
 
 > [!IMPORTANT]
 > **Everything here is simulated.** No transformer is executed, no CUDA/Metal/Ascend runtime is
@@ -47,9 +47,12 @@ pnpm bench                # 80-run scenario matrix -> bench-results.json
 pnpm bench --smoke --json # fast deterministic matrix for CI/scripts
 pnpm dev:web              # Vite dev server at http://localhost:5173
 pnpm build:web            # production visualizer bundle -> dist-web/
-pnpm test                 # unit, property, and UI tests
+pnpm test                 # unit, property, benchmark, and UI tests
+pnpm test:coverage        # coverage report with thresholds
+pnpm lint                 # Biome lint
+pnpm format:check         # Biome formatting check
 pnpm typecheck            # strict TypeScript
-pnpm check                # typecheck + tests
+pnpm check                # typecheck + lint + tests
 ```
 
 Useful demo flags:
@@ -64,6 +67,9 @@ pnpm demo --help
 pnpm bench --scenario prefix-heavy --batch-sizes 8,16 --chunks 256 --kv-blocks 1024
 pnpm bench --out bench-results.json
 pnpm bench --help
+
+pnpm bench --smoke --json > bench-smoke.json
+pnpm validate:bench bench-smoke.json   # JSON Schema validation
 ```
 
 ## Visualizer
@@ -107,7 +113,7 @@ Captured on 2026-11-12 from the default scenario. **Every number below is simula
 not a hardware measurement.**
 
 ```text
-LLM Serving Lab · Phase 4 scheduler + prefix cache
+LLM Serving Lab · Phase 5 scheduler + prefix cache
 ==================================================
 SIMULATED — no model is executed and no GPU/NPU is used.
 
@@ -202,7 +208,7 @@ pnpm bench --smoke --json                    # CI smoke: 2 runs, stdout JSON
 Captured output from `pnpm bench` (all numbers simulated):
 
 ```text
-LLM Serving Lab · Phase 4 benchmark harness
+LLM Serving Lab · Phase 5 benchmark harness
 ==================================================
 SIMULATED — no model is executed and no GPU/NPU is used.
 
@@ -288,11 +294,16 @@ src/core/            pure simulator and scheduling logic (no DOM/React/Node APIs
   cost-model.ts      synthetic latency model
 src/cli/demo.ts      comparison CLI (Node)
 src/cli/bench.ts     benchmark matrix CLI + JSON writer (Node)
+src/cli/validate-bench.ts  benchmark JSON Schema validator
 src/app/             React visualizer: App, components, trace reconstruction, styles
 index.html           Vite entry document
-vite.config.ts       Vite/React build config
-test/                unit, property, benchmark, timeline, and UI tests
+vite.config.ts       Vite/React build config (relative base for Pages)
+schemas/             versioned benchmark-report JSON Schema
+test/                unit, property, benchmark, schema, timeline, and UI tests
 docs/                screenshots and the learning track
+biome.json           lint/format configuration
+CONTRIBUTING.md      contributor workflow, tests, and simulation policy
+CHANGELOG.md         release notes
 ARCHITECTURE.md      design, invariants, trade-offs, limitations
 TASKS.md             milestone plan and verification record
 ```
@@ -300,27 +311,32 @@ TASKS.md             milestone plan and verification record
 ## Testing and CI
 
 ```text
-13 test files, 83 tests (as of Phase 4)
+14 test files, 84 tests (as of Phase 5 P0)
 - exact scheduler and engine timing tests
 - KV allocation/free/capacity tests
 - prefix sharing, retention, contiguous-hit, and LRU-eviction tests
-- fast-check property tests for allocator/prefix invariants and end-to-end simulations
+- fast-check property tests for allocator/prefix invariants, event ordering, and end-to-end runs
 - deterministic seeded workload tests
 - benchmark schema, determinism, matrix, and scenario tests
+- a JSON Schema regression test for exported benchmark reports
 - timeline reconstruction and jsdom UI/deep-link tests
 - a scenario regression test for the headline FCFS vs continuous-batching comparison
 ```
 
-`.github/workflows/ci.yml` runs install, typecheck, tests, the Vite production build, and JSON
-smoke tests for the default demo, prefix cache, and benchmark harness on Node 24. This checkout
-has no GitHub remote yet, so the workflow has not executed on GitHub; the same commands pass
-locally. The UI has also been rendered and screenshotted with local headless Chrome.
+`.github/workflows/ci.yml` runs Node 22 and 24 with install, lint, format check, typecheck,
+coverage, the Vite production build, JSON smoke tests, and benchmark schema validation. The
+coverage gates live in `vitest.config.ts`; the schema lives in `schemas/benchmark-report.schema.json`.
+
+This checkout still has no GitHub remote, so GitHub Actions has not executed remotely and the
+public Pages demo is not live. `.github/workflows/pages.yml` is prepared; after creating a repo,
+push `main`, enable **Settings → Pages → GitHub Actions**, and the workflow will deploy
+`dist-web/`. The visualizer has been rendered locally at 1440, 1280, and 820 px widths.
 
 ## Learning track
 
 A structured, internship-oriented path for this project: **8 weeks at ~15 hours/week**, covering
 inference fundamentals, scheduling/memory trade-offs, experiments, and portfolio preparation.
-It is a plan, not a claim that M5/M6 are implemented.
+It is a plan, not a claim that M6 or measured calibration is implemented.
 
 - [8-week roadmap and weekly schedule](docs/learning/README.md)
 - [Concepts: prefill/decode, KV math, metrics, queueing, prefix cache](docs/learning/CONCEPTS.md)
@@ -330,7 +346,8 @@ It is a plan, not a claim that M5/M6 are implemented.
 - [Notes and experiment templates](docs/learning/NOTES_TEMPLATE.md)
 
 The track is written in Chinese; code, commands, and the rest of the repository remain in
-English. All lab results are simulated unless explicitly marked as measured.
+English. M6 and measured calibration are still future work. All lab results are simulated
+unless explicitly marked as measured.
 
 ## Roadmap
 
@@ -340,7 +357,8 @@ English. All lab results are simulated unless explicitly marked as measured.
 | 2 | Optional prefix cache with block sharing, retention, hit/memory statistics | ✅ Done |
 | 3 | Benchmark harness, scenario matrix, P99 reporting, versioned JSON export | ✅ Done |
 | 4 | React visualizer: timeline, queue, request states, KV occupancy, comparison | ✅ Done |
-| 5 | Hardening: coverage thresholds, more invariants, docs polish | ⏳ Next |
+| 5 | P0 hardening: lint/format, coverage, schema, CI matrix, OSS docs | 🟡 P0 complete |
+| 6 | Realism: prefix-aware admission/preemption; optional measured calibration | ⏳ Next |
 
 ## Engineering principles
 
@@ -356,21 +374,28 @@ English. All lab results are simulated unless explicitly marked as measured.
 这是一个**纯模拟**的大模型推理调度实验室：在 Apple Silicon 16 GB 笔记本上也能运行，
 不加载模型、不需要 GPU，所有性能数字都来自文档化的合成延迟模型，不是硬件实测。
 
-第四阶段已完成：新增 React 可视化前端——同负载对比 FCFS/Continuous Batching 的吞吐与
-P50/P95/P99 延迟，按 step 回放时间轴，展示等待队列、running 请求的 prefill/decode 状态、
-Prompt/Output 进度、Prefix 命中与 KV 占用（active/retained/shared/reserved），并明确标注
-所有数字均为模拟值。当前共有 13 个测试文件、83 个单元/属性/UI 测试。
+第五阶段 P0 已完成：Biome lint/format、Vitest 覆盖率门槛、Node 22/24 CI、benchmark
+JSON Schema 校验、CONTRIBUTING/CHANGELOG/issue 模板，以及 GitHub Pages 静态部署 workflow。
+公开 demo 仍需 GitHub remote 与 Pages 设置；M6（prefix-aware admission/preemption）和小模型
+校准尚未开始。当前共有 14 个测试文件、84 个单元/属性/UI 测试。
 
 ```bash
-pnpm install && pnpm dev:web     # http://localhost:5173
-pnpm demo --prefix-cache && pnpm bench && pnpm test
+pnpm install && pnpm check       # typecheck + lint + tests
+pnpm dev:web                     # http://localhost:5173
+pnpm test:coverage
+pnpm demo --prefix-cache && pnpm bench
 ```
 
 UI 截图见 `docs/visualizer-bursty.png` 与 `docs/visualizer-prefix.png`；KV 容量图是聚合
 占用，不是物理 block ID。
 
 配套中文学习文档位于 `docs/learning/`：8 周 × 15 小时的路线，包含概念地图、10 个实验、
-实习/面试准备、论文与源码资源、周记模板。它是学习计划，不代表 M5/M6 已实现。
+实习/面试准备、论文与源码资源、周记模板。它是学习计划，不代表 M6/实测校准已实现。
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, quality gates, simulation policy, and the PR
+checklist. Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

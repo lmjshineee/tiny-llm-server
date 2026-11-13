@@ -205,28 +205,71 @@ Commits:
 - The UI uses the five benchmark scenarios; arbitrary prompt text is not supported.
 - Screenshots contain simulated values and are labeled accordingly.
 
-## M5 — Hardening and OSS polish ⏳
+## M5 — Hardening and OSS polish 🟡 P0 complete
 
-- [ ] Coverage thresholds and CI reporting.
-- [ ] Optional ESLint/Prettier decision and formatting check.
-- [ ] Node 22/24 CI matrix (or a documented minimum-version test).
-- [ ] More property tests: event ordering, plan validity, and metrics edge cases.
-- [ ] Performance guard for large simulations (streaming traces / bounded memory).
-- [ ] CONTRIBUTING, issue templates, and release notes.
-- [ ] Document cost-model assumptions and how to replace them with measured traces.
+### P0 delivered
+
+- [x] Biome lint/format configuration, scripts, and CI formatting check.
+- [x] Vitest V8 coverage with enforced statement/branch/function/line thresholds.
+- [x] Node 22/24 CI matrix with lint, format, typecheck, coverage, build, and simulation smokes.
+- [x] Versioned benchmark JSON Schema (`schemas/benchmark-report.schema.json`), Ajv validator,
+      CLI command, and schema regression test.
+- [x] Event-ordering assertions in the randomized end-to-end simulation property test.
+- [x] Cost-model assumptions and a measured-profile replacement path documented in
+      `ARCHITECTURE.md`.
+- [x] `CONTRIBUTING.md`, issue templates, pull-request template, and `CHANGELOG.md`.
+- [x] GitHub Pages workflow prepared; the Vite build uses relative asset paths.
+- [x] Package version `0.5.0`.
+
+### Remaining (not blocking P0)
+
+- [ ] Public Pages deployment — requires a GitHub remote and enabling Pages → GitHub Actions.
+      The workflow is committed but has not run.
+- [ ] UI Web Worker/streaming for very large traces. Current scenarios finish quickly; the core
+      has `maxSteps` / `maxSimTimeMs` guards.
+- [ ] Deeper adversarial scheduler property tests (preemption is not implemented yet).
+- [ ] Optional measured calibration profile (deferred to M6).
+
+### Verification record (2026-11-13, Phase 5 P0)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Types + lint + tests | `pnpm check` | 14 files, 84 tests, pass |
+| Formatting | `pnpm format:check` | pass |
+| Coverage | `pnpm test:coverage` | thresholds enforced |
+| Web build | `pnpm build:web` | pass with relative base |
+| Benchmark schema | `pnpm validate:bench bench-smoke.json` | smoke + full reports pass |
+| CI YAML | local parse | Node 22/24 matrix, 13 steps |
+| Pages workflow | local YAML parse | build/deploy jobs present; not executed |
+| GitHub Actions | remote | not run — no GitHub remote yet |
+
+Commits:
+- `chore: add Biome, coverage, and benchmark schema`
+- `test: assert event ordering in randomized simulations`
+- `ci: add Node matrix, schema validation, and Pages workflow`
+- `docs: add contributor docs and update Phase 5 status`
+
+## M6 — Realism and calibration ⏳
+
+- [ ] Prefix-aware admission: separate active-shared, retained-idle, and exclusive-reservation
+      accounting so prefix hits can improve concurrency without violating capacity.
+- [ ] Preemption/recompute: victim selection, KV release, wasted-token metrics, and stress tests.
+- [ ] Optional small-model calibration profile on Apple Silicon (separate from `synthetic-v1`).
+- [ ] Comparative report: conservative reservation vs prefix-aware admission, with and without
+      preemption.
+- [ ] Refresh UI/e2e screenshots and update the cost-model limitations.
 
 ## Backlog / deliberately out of scope
 
 - ⛔ Real GPU/ANE/CUDA/Ascend execution or hardware benchmark claims.
 - ⛔ Distributed serving, multi-node, tensor/pipeline parallelism.
 - ⛔ Speculative decoding, constrained decoding, multi-model routing.
-- ☐ Preemption/swapping and prefix-aware KV admission.
 - ☐ Real token-content hashing; charge cache lookup/hash latency; avoid duplicate concurrent misses.
 - ☐ Priority/deadline/SLA-aware scheduling.
 
 ## Definition of done (every milestone)
 
-1. `pnpm typecheck` and `pnpm test` pass, including at least one new invariant or property test.
+1. `pnpm check` passes, including at least one new invariant or property test for core changes.
 2. A runnable command is documented in README; output is labeled simulated where applicable.
 3. Result types remain JSON-serializable and UI-agnostic.
 4. No fabricated benchmarks, no hidden hardware assumptions, no out-of-repo writes.
@@ -248,3 +291,7 @@ Commits:
 - `test: cover visualizer timeline, UI, and deep links`
 - `docs: document visualizer and update Phase 4 status`
 - `docs: add internship-focused learning track`
+- `chore: add Biome, coverage, and benchmark schema`
+- `test: assert event ordering in randomized simulations`
+- `ci: add Node matrix, schema validation, and Pages workflow`
+- `docs: add contributor docs and update Phase 5 status`

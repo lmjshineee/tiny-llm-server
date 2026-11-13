@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 4 (simulator, prefix cache, benchmark harness, CLI, React visualizer).
-Hardening and OSS polish are next.
+Status: Phase 5 P0 (simulator, prefix cache, benchmark harness, CLI, React visualizer, and
+quality/CI hardening). M6 realism and optional measured calibration are next.
 
 ## 1. Purpose and scope
 
@@ -335,6 +335,22 @@ hits do reduce the prefill token count, but the model does not include cache-loo
 memory-bandwidth contention, attention quadratic effects, network latency, or hardware
 variance. Replace the model with measured traces before drawing performance conclusions.
 
+### Replacing the synthetic profile
+
+The cost coefficients are explicit config fields, not hidden constants. A measured profile should:
+
+1. Keep the same `CostModelConfig` interface and add provenance: machine, model, quantization,
+   runtime/version, warm-up, repetitions, input/output lengths, and variance.
+2. Be opt-in (for example, a separate profile id) rather than silently changing the default
+   `synthetic-v1` numbers.
+3. Keep prefill and decode measurements separate; do not fit a single end-to-end number.
+4. Be reported with the benchmark, including the fact that it is a single-machine profile rather
+   than a production benchmark.
+5. Bump `costModelVersion` (and the JSON schema if the report shape changes).
+
+The current learning plan's calibration exercise is a starting point, not a claim that this
+profile already exists.
+
 ## 8. Metrics
 
 | Metric | Definition |
@@ -387,6 +403,8 @@ The report includes:
 - No wall-clock timestamp, so identical options produce byte-identical JSON.
 - No per-request traces or steps; those stay in the live simulator for the web UI. The report
   is summary-only to stay small and stable.
+- A machine-readable JSON Schema at `schemas/benchmark-report.schema.json`; tests and
+  `pnpm validate:bench <file>` reject shape drift before a report is consumed.
 
 `pnpm bench` writes `bench-results.json`; `pnpm bench --smoke --json` emits a two-run report to
 stdout for CI. `--out`, `--scenario` (repeatable), `--seed`, and the three matrix axes are

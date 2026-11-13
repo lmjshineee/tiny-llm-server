@@ -8,7 +8,7 @@
 ## 1. 你目前已经拥有的证据
 
 - 一个可运行的确定性模拟器：FCFS、continuous batching、paged KV、prefix cache。
-- 83 个测试，包含 property-based tests 与 UI 测试。
+- 84 个测试，包含 property-based、schema 与 UI 测试。
 - 5 个场景 / 80 个 matrix cell 的 benchmark，版本化 JSON。
 - React 可视化：时间轴、队列、请求状态、KV 占用、指标对比。
 - 一份架构文档，明确写出模拟边界与未实现项。
@@ -86,7 +86,7 @@ LLM Serving Lab — 独立项目（TypeScript / React / 系统模拟）
 
 ### 数字怎么处理
 
-可以写“83 tests”“5 scenarios × 80 cells”“4 scheduler/KV/chunk/batch 维度”，这些是可验证的。
+可以写“84 tests”“5 scenarios × 80 cells”“4 scheduler/KV/chunk/batch 维度”，这些是可验证的。
 不要写“TTFT 降低 99.6%”这类数字而不加 context；模拟结果会引来追问，而且很容易被认定为夸大。
 
 ---
@@ -195,6 +195,6 @@ LLM Serving Lab — 独立项目（TypeScript / React / 系统模拟）
 - Prefix key 是合成的，不是真实 token hash。
 - KV admission 使用 worst-case reservation，尚未实现 prefix-aware admission/preemption。
 - UI 的 KV 图是聚合占用，不是物理 block ID。
-- 83 个测试通过；CI 工作流已写，但尚未在 GitHub 上实际执行（没有 remote）。
+- 84 个测试通过；CI 工作流已写，但尚未在 GitHub 上实际执行（没有 remote）。
 
 把这些说清楚，不会减分；反而会显得你知道系统的边界。

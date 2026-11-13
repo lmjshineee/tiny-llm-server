@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a scoped improvement to the lab.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project intentionally stays simulation-first. Features that add GPU/distributed
+        claims or production-serving scope need a clear motivation and honest boundaries.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not understand or test today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Smallest useful change; mention affected modules.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: verification
+    attributes:
+      label: How should this be verified?
+      description: Tests, property invariants, benchmark cells, screenshots.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This keeps the simulation/measurement distinction explicit.
+          required: true
+        - label: This does not require claiming real hardware performance.
+          required: true

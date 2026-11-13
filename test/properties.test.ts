@@ -157,7 +157,11 @@ describe('property: end-to-end simulation', () => {
           expect(result.cache.reservedBlocks).toBe(0)
           expect(result.summary.makespanMs).toBeGreaterThanOrEqual(0)
 
-          for (const step of result.steps) {
+          let previousEnd = 0
+          for (const [stepIndex, step] of result.steps.entries()) {
+            expect(step.index).toBe(stepIndex)
+            expect(step.startMs).toBeGreaterThanOrEqual(previousEnd)
+            previousEnd = step.endMs
             expect(step.prefillTokens + step.decodeTokens).toBeLessThanOrEqual(
               config.maxNumBatchedTokens,
             )
@@ -167,9 +171,7 @@ describe('property: end-to-end simulation', () => {
 
           for (const outcome of result.requests) {
             expect(outcome.outputTokens).toBe(outcome.maxNewTokens)
-            expect(outcome.timestamps.arrivedAt).toBeLessThanOrEqual(
-              outcome.timestamps.admittedAt,
-            )
+            expect(outcome.timestamps.arrivedAt).toBeLessThanOrEqual(outcome.timestamps.admittedAt)
             expect(outcome.timestamps.admittedAt).toBeLessThanOrEqual(
               outcome.timestamps.firstTokenAt,
             )

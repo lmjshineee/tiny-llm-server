@@ -375,6 +375,7 @@ class Simulator {
       ...plan.decode,
     ])
 
+    const cache = this.#cache.stats
     this.#steps.push({
       index: this.#steps.length,
       startMs,
@@ -386,6 +387,15 @@ class Simulator {
       prefillTokens,
       decodeTokens,
       batchSize: batchIds.size,
+      cache: {
+        allocatedBlocks: cache.allocatedBlocks,
+        cachedBlocks: cache.cachedBlocks,
+        physicalBlocks: cache.physicalBlocks,
+        logicalBlocks: cache.logicalBlocks,
+        sharedBlocks: cache.sharedBlocks,
+        reservedBlocks: cache.reservedBlocks,
+        availableBlocks: cache.availableBlocks,
+      },
     })
 
     this.#now = endMs

@@ -126,7 +126,7 @@ function parseArgs(argv: readonly string[]): BenchCliOptions {
 }
 
 function usage(): string {
-  return `LLM Serving Lab — Phase 3 benchmark harness
+  return `LLM Serving Lab — Phase 4 benchmark harness
 
 Usage:
   pnpm bench [options]
@@ -284,7 +284,7 @@ function main(): void {
     return
   }
 
-  process.stdout.write('LLM Serving Lab · Phase 3 benchmark harness\n')
+  process.stdout.write('LLM Serving Lab · Phase 4 benchmark harness\n')
   process.stdout.write('==================================================\n')
   process.stdout.write('SIMULATED — no model is executed and no GPU/NPU is used.\n')
   printTable(report)

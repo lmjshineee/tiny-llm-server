@@ -4,7 +4,7 @@ import { runSimulation } from './engine'
 import { ContinuousBatchingScheduler } from './schedulers/continuous-batching'
 import { FcfsScheduler } from './schedulers/fcfs'
 import { createWorkloadConfig, generateWorkload } from './workload'
-import type { DeepPartial, EngineConfig, Scheduler, Summary } from './types'
+import type { DeepPartial, EngineConfig, RequestSpec, Scheduler, Summary } from './types'
 import type { WorkloadConfig } from './workload'
 
 /** Bump when the JSON shape changes. */
@@ -88,6 +88,56 @@ const SCENARIO_SPECS: readonly ScenarioSpec[] = [
 export const BENCHMARK_SCENARIO_NAMES: readonly string[] = SCENARIO_SPECS.map(
   (scenario) => scenario.name,
 )
+
+export interface BenchmarkScenarioInfo {
+  readonly name: string
+  readonly description: string
+}
+
+export interface BenchmarkScenarioInput {
+  readonly name: string
+  readonly description: string
+  readonly workload: WorkloadConfig
+  readonly requests: readonly RequestSpec[]
+  readonly engineOverrides: DeepPartial<EngineConfig>
+}
+
+/** Scenario names/descriptions for CLI help, docs, and the visualizer. */
+export function listBenchmarkScenarios(): readonly BenchmarkScenarioInfo[] {
+  return SCENARIO_SPECS.map((scenario) => ({
+    name: scenario.name,
+    description: scenario.description,
+  }))
+}
+
+/**
+ * Build the workload and engine overrides for one scenario. The UI uses this to
+ * run both schedulers against identical requests without duplicating presets.
+ */
+export function createBenchmarkScenarioInput(
+  name: string,
+  seed: number = DEFAULT_BENCHMARK_SEED,
+): BenchmarkScenarioInput {
+  if (!Number.isFinite(seed)) {
+    throw new ConfigError('benchmark.seed must be finite')
+  }
+
+  const spec = SCENARIO_SPECS.find((scenario) => scenario.name === name)
+  if (spec === undefined) {
+    throw new ConfigError(
+      `unknown benchmark scenario "${name}"; available: ${BENCHMARK_SCENARIO_NAMES.join(', ')}`,
+    )
+  }
+
+  const workload = createWorkloadConfig({ ...spec.workload, seed })
+  return {
+    name: spec.name,
+    description: spec.description,
+    workload,
+    requests: generateWorkload(workload),
+    engineOverrides: spec.engine ?? {},
+  }
+}
 
 export interface BenchmarkOptions {
   readonly seed?: number
@@ -207,8 +257,8 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
   const scenarioReports: BenchmarkScenario[] = []
 
   for (const scenario of scenarios) {
-    const workload = createWorkloadConfig({ ...scenario.workload, seed })
-    const requests = generateWorkload(workload)
+    const input = createBenchmarkScenarioInput(scenario.name, seed)
+    const { workload, requests } = input
     const runs: BenchmarkRun[] = []
 
     for (const schedulerKind of SCHEDULER_KINDS) {
@@ -216,11 +266,11 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
         for (const prefillChunkSize of matrix.prefillChunkSizes) {
           for (const kvBlocks of matrix.kvBlocks) {
             const engine = createEngineConfig({
-              ...scenario.engine,
+              ...input.engineOverrides,
               maxBatchSize: batchSize,
               prefillChunkSize,
               kv: {
-                ...(scenario.engine?.kv ?? {}),
+                ...(input.engineOverrides.kv ?? {}),
                 totalBlocks: kvBlocks,
               },
             })
@@ -249,7 +299,7 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
 
     scenarioReports.push({
       name: scenario.name,
-      description: scenario.description,
+      description: input.description,
       workload,
       requestCount: requests.length,
       runs,

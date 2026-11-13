@@ -8,6 +8,8 @@ export {
   COST_MODEL_VERSION,
   DEFAULT_BENCHMARK_SEED,
   SCHEDULER_KINDS,
+  createBenchmarkScenarioInput,
+  listBenchmarkScenarios,
   runBenchmark,
 } from './benchmark'
 export type {
@@ -16,6 +18,8 @@ export type {
   BenchmarkReport,
   BenchmarkRun,
   BenchmarkScenario,
+  BenchmarkScenarioInfo,
+  BenchmarkScenarioInput,
   SchedulerKind,
 } from './benchmark'
 export { estimateStepLatency } from './cost-model'

@@ -144,6 +144,16 @@ export interface CacheStats extends CacheView {
   readonly activeRequests: number
 }
 
+export interface StepCacheSnapshot {
+  readonly allocatedBlocks: number
+  readonly cachedBlocks: number
+  readonly physicalBlocks: number
+  readonly logicalBlocks: number
+  readonly sharedBlocks: number
+  readonly reservedBlocks: number
+  readonly availableBlocks: number
+}
+
 export interface StepRecord {
   readonly index: number
   readonly startMs: number
@@ -156,6 +166,8 @@ export interface StepRecord {
   readonly decodeTokens: number
   /** Number of distinct requests that received compute in this step. */
   readonly batchSize: number
+  /** KV state at the end of the step, for timeline visualization. */
+  readonly cache: StepCacheSnapshot
 }
 
 /** Aggregated latency statistics. `null` means "no observations". */

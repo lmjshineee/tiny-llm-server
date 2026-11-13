@@ -56,6 +56,15 @@ function step(index: number, decodeTokens: number): StepRecord {
     prefillTokens: 0,
     decodeTokens,
     batchSize: decodeTokens,
+    cache: {
+      allocatedBlocks: 0,
+      cachedBlocks: 0,
+      physicalBlocks: 0,
+      logicalBlocks: 0,
+      sharedBlocks: 0,
+      reservedBlocks: 0,
+      availableBlocks: 10,
+    },
   }
 }
 

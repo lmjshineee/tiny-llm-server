@@ -1,0 +1,280 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://llm-serving-lab.dev/schemas/benchmark-report.schema.json",
+  "title": "LLM Serving Lab benchmark report",
+  "description": "Versioned, deterministic, simulation-only benchmark output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "simulated",
+    "costModelVersion",
+    "costModelNote",
+    "seed",
+    "matrix",
+    "runCount",
+    "scenarios"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "simulated": { "const": true },
+    "costModelVersion": { "const": "synthetic-v1" },
+    "costModelNote": { "type": "string", "minLength": 1 },
+    "seed": { "type": "number" },
+    "matrix": { "$ref": "#/definitions/matrix" },
+    "runCount": { "type": "integer", "minimum": 1 },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/scenario" }
+    }
+  },
+  "definitions": {
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "nonNegativeNumber": { "type": "number", "minimum": 0 },
+    "metricStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "mean", "p50", "p95", "p99", "max"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "mean": { "type": ["number", "null"] },
+        "p50": { "type": ["number", "null"] },
+        "p95": { "type": ["number", "null"] },
+        "p99": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean", "stddev", "min", "max"],
+      "properties": {
+        "mean": { "type": "number" },
+        "stddev": { "$ref": "#/definitions/nonNegativeNumber" },
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    },
+    "prefixConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "poolSize", "tokens", "requestProbability"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "poolSize": { "type": "integer", "minimum": 0 },
+        "tokens": { "$ref": "#/definitions/nonNegativeInteger" },
+        "requestProbability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numRequests",
+        "arrivalRatePerSecond",
+        "seed",
+        "promptTokens",
+        "outputTokens",
+        "prefix"
+      ],
+      "properties": {
+        "numRequests": { "$ref": "#/definitions/nonNegativeInteger" },
+        "arrivalRatePerSecond": { "$ref": "#/definitions/nonNegativeNumber" },
+        "seed": { "type": "number" },
+        "promptTokens": { "$ref": "#/definitions/distribution" },
+        "outputTokens": { "$ref": "#/definitions/distribution" },
+        "prefix": { "$ref": "#/definitions/prefixConfig" }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["batchSizes", "prefillChunkSizes", "kvBlocks"],
+      "properties": {
+        "batchSizes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/positiveInteger" }
+        },
+        "prefillChunkSizes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/positiveInteger" }
+        },
+        "kvBlocks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/positiveInteger" }
+        }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxNumBatchedTokens",
+        "maxBatchSize",
+        "prefillChunkSize",
+        "kv",
+        "cost",
+        "maxSteps",
+        "maxSimTimeMs"
+      ],
+      "properties": {
+        "maxNumBatchedTokens": { "$ref": "#/definitions/positiveInteger" },
+        "maxBatchSize": { "$ref": "#/definitions/positiveInteger" },
+        "prefillChunkSize": { "$ref": "#/definitions/positiveInteger" },
+        "kv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["blockSize", "totalBlocks"],
+          "properties": {
+            "blockSize": { "$ref": "#/definitions/positiveInteger" },
+            "totalBlocks": { "$ref": "#/definitions/positiveInteger" }
+          }
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stepOverheadMs",
+            "prefillBaseMs",
+            "prefillMsPerToken",
+            "decodeBaseMs",
+            "decodeMsPerRequest"
+          ],
+          "properties": {
+            "stepOverheadMs": { "$ref": "#/definitions/nonNegativeNumber" },
+            "prefillBaseMs": { "$ref": "#/definitions/nonNegativeNumber" },
+            "prefillMsPerToken": { "$ref": "#/definitions/nonNegativeNumber" },
+            "decodeBaseMs": { "$ref": "#/definitions/nonNegativeNumber" },
+            "decodeMsPerRequest": { "$ref": "#/definitions/nonNegativeNumber" }
+          }
+        },
+        "maxSteps": { "$ref": "#/definitions/positiveInteger" },
+        "maxSimTimeMs": { "$ref": "#/definitions/nonNegativeNumber" }
+      }
+    },
+    "prefixCacheSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hitRequests",
+        "totalRequests",
+        "hitTokens",
+        "totalPromptTokens",
+        "requestHitRate",
+        "tokenHitRate"
+      ],
+      "properties": {
+        "hitRequests": { "$ref": "#/definitions/nonNegativeInteger" },
+        "totalRequests": { "$ref": "#/definitions/nonNegativeInteger" },
+        "hitTokens": { "$ref": "#/definitions/nonNegativeInteger" },
+        "totalPromptTokens": { "$ref": "#/definitions/nonNegativeInteger" },
+        "requestHitRate": { "$ref": "#/definitions/nonNegativeNumber" },
+        "tokenHitRate": { "$ref": "#/definitions/nonNegativeNumber" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "simulated",
+        "totalRequests",
+        "completedRequests",
+        "makespanMs",
+        "throughputRequestsPerSecond",
+        "throughputOutputTokensPerSecond",
+        "ttftMs",
+        "tpotMs",
+        "e2eMs",
+        "totalSteps",
+        "avgDecodeBatchSize",
+        "prefixCache",
+        "kvPeakAllocatedBlocks",
+        "kvPeakReservedBlocks",
+        "kvPeakCachedBlocks",
+        "kvPeakPhysicalBlocks",
+        "kvPeakLogicalBlocks",
+        "kvPeakSharedBlocks",
+        "kvPeakUtilization",
+        "kvPeakPhysicalUtilization"
+      ],
+      "properties": {
+        "strategy": { "enum": ["fcfs", "continuous-batching"] },
+        "simulated": { "const": true },
+        "totalRequests": { "$ref": "#/definitions/nonNegativeInteger" },
+        "completedRequests": { "$ref": "#/definitions/nonNegativeInteger" },
+        "makespanMs": { "$ref": "#/definitions/nonNegativeNumber" },
+        "throughputRequestsPerSecond": { "$ref": "#/definitions/nonNegativeNumber" },
+        "throughputOutputTokensPerSecond": { "$ref": "#/definitions/nonNegativeNumber" },
+        "ttftMs": { "$ref": "#/definitions/metricStats" },
+        "tpotMs": { "$ref": "#/definitions/metricStats" },
+        "e2eMs": { "$ref": "#/definitions/metricStats" },
+        "totalSteps": { "$ref": "#/definitions/nonNegativeInteger" },
+        "avgDecodeBatchSize": { "$ref": "#/definitions/nonNegativeNumber" },
+        "prefixCache": { "$ref": "#/definitions/prefixCacheSummary" },
+        "kvPeakAllocatedBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakReservedBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakCachedBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakPhysicalBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakLogicalBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakSharedBlocks": { "$ref": "#/definitions/nonNegativeInteger" },
+        "kvPeakUtilization": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "kvPeakPhysicalUtilization": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "scheduler",
+        "batchSize",
+        "prefillChunkSize",
+        "kvBlocks",
+        "engine",
+        "summary"
+      ],
+      "properties": {
+        "runId": { "type": "string", "minLength": 1 },
+        "scheduler": { "enum": ["fcfs", "continuous-batching"] },
+        "batchSize": { "$ref": "#/definitions/positiveInteger" },
+        "prefillChunkSize": { "$ref": "#/definitions/positiveInteger" },
+        "kvBlocks": { "$ref": "#/definitions/positiveInteger" },
+        "engine": { "$ref": "#/definitions/engine" },
+        "summary": { "$ref": "#/definitions/summary" }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description", "workload", "requestCount", "runs"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "workload": { "$ref": "#/definitions/workload" },
+        "requestCount": { "$ref": "#/definitions/nonNegativeInteger" },
+        "runs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/run" }
+        }
+      }
+    }
+  }
+}

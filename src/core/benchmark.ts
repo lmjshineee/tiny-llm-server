@@ -198,7 +198,9 @@ function normalizePositiveIntegers(
   const seen = new Set<number>()
   for (const value of source) {
     if (!Number.isSafeInteger(value) || value <= 0) {
-      throw new ConfigError(`benchmark.${name} values must be positive integers, got ${String(value)}`)
+      throw new ConfigError(
+        `benchmark.${name} values must be positive integers, got ${String(value)}`,
+      )
     }
     if (!seen.has(value)) {
       seen.add(value)

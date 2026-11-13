@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  WorkloadConfigError,
-  createWorkloadConfig,
-  generateWorkload,
-} from '../src/core/index'
+import { WorkloadConfigError, createWorkloadConfig, generateWorkload } from '../src/core/index'
 
 describe('generateWorkload', () => {
   it('is reproducible from a seed', () => {
@@ -116,11 +112,11 @@ describe('generateWorkload', () => {
   it('rejects invalid workload configs', () => {
     expect(() => createWorkloadConfig({ numRequests: 0 })).toThrow(WorkloadConfigError)
     expect(() => createWorkloadConfig({ arrivalRatePerSecond: 0 })).toThrow(WorkloadConfigError)
-    expect(() =>
-      createWorkloadConfig({ promptTokens: { min: 100, max: 10 } }),
-    ).toThrow(WorkloadConfigError)
-    expect(() =>
-      createWorkloadConfig({ outputTokens: { mean: Number.NaN } }),
-    ).toThrow(WorkloadConfigError)
+    expect(() => createWorkloadConfig({ promptTokens: { min: 100, max: 10 } })).toThrow(
+      WorkloadConfigError,
+    )
+    expect(() => createWorkloadConfig({ outputTokens: { mean: Number.NaN } })).toThrow(
+      WorkloadConfigError,
+    )
   })
 })

@@ -61,11 +61,19 @@ export class MinHeap<T> {
       const leftValue = left < size ? this.#items[left] : undefined
       const rightValue = right < size ? this.#items[right] : undefined
 
-      if (leftValue !== undefined && smallestValue !== undefined && this.#compare(leftValue, smallestValue) < 0) {
+      if (
+        leftValue !== undefined &&
+        smallestValue !== undefined &&
+        this.#compare(leftValue, smallestValue) < 0
+      ) {
         smallest = left
       }
       const candidate = this.#items[smallest]
-      if (rightValue !== undefined && candidate !== undefined && this.#compare(rightValue, candidate) < 0) {
+      if (
+        rightValue !== undefined &&
+        candidate !== undefined &&
+        this.#compare(rightValue, candidate) < 0
+      ) {
         smallest = right
       }
 

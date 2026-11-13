@@ -20,10 +20,14 @@ export function estimateStepLatency(
   decodeRequests: number,
 ): number {
   if (!Number.isInteger(prefillTokens) || prefillTokens < 0) {
-    throw new RangeError(`prefillTokens must be a non-negative integer, got ${String(prefillTokens)}`)
+    throw new RangeError(
+      `prefillTokens must be a non-negative integer, got ${String(prefillTokens)}`,
+    )
   }
   if (!Number.isInteger(decodeRequests) || decodeRequests < 0) {
-    throw new RangeError(`decodeRequests must be a non-negative integer, got ${String(decodeRequests)}`)
+    throw new RangeError(
+      `decodeRequests must be a non-negative integer, got ${String(decodeRequests)}`,
+    )
   }
   if (prefillTokens === 0 && decodeRequests === 0) return 0
 

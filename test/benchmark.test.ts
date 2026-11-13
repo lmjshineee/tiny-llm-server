@@ -56,17 +56,12 @@ describe('benchmark harness', () => {
     })
 
     expect(report.runCount).toBe(BENCHMARK_SCENARIO_NAMES.length * 2)
-    expect(report.scenarios.map((scenario) => scenario.name)).toEqual([
-      ...BENCHMARK_SCENARIO_NAMES,
-    ])
+    expect(report.scenarios.map((scenario) => scenario.name)).toEqual([...BENCHMARK_SCENARIO_NAMES])
 
     for (const scenario of report.scenarios) {
       expect(scenario.workload.seed).toBe(7)
       expect(scenario.runs).toHaveLength(2)
-      expect(scenario.runs.map((run) => run.scheduler)).toEqual([
-        'fcfs',
-        'continuous-batching',
-      ])
+      expect(scenario.runs.map((run) => run.scheduler)).toEqual(['fcfs', 'continuous-batching'])
 
       for (const run of scenario.runs) {
         expect(run.summary.completedRequests).toBe(scenario.requestCount)

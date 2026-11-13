@@ -122,11 +122,19 @@ describe('PagedKVCache / prefix sharing', () => {
     cache.reserve('a', 8, { key: 'p', tokens: 8 })
     cache.appendTokens('a', 8)
     expect(cache.free('a')).toBe(0)
-    expect(cache.stats).toMatchObject({ cachedBlocks: 2, physicalBlocks: 2, freeAllocatedBlocks: 2 })
+    expect(cache.stats).toMatchObject({
+      cachedBlocks: 2,
+      physicalBlocks: 2,
+      freeAllocatedBlocks: 2,
+    })
 
     cache.reserve('b', 16)
     cache.appendTokens('b', 8)
-    expect(cache.stats).toMatchObject({ allocatedBlocks: 2, cachedBlocks: 2, freeAllocatedBlocks: 0 })
+    expect(cache.stats).toMatchObject({
+      allocatedBlocks: 2,
+      cachedBlocks: 2,
+      freeAllocatedBlocks: 0,
+    })
 
     // The third block forces eviction of the oldest cached block (index 0).
     cache.appendTokens('b', 4)

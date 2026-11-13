@@ -33,7 +33,9 @@ export function sampleStandardNormal(rng: Rng): number {
 /** Exponential inter-arrival time in milliseconds for a Poisson process. */
 export function sampleExponentialMs(rng: Rng, ratePerSecond: number): number {
   if (!Number.isFinite(ratePerSecond) || ratePerSecond <= 0) {
-    throw new RangeError(`ratePerSecond must be a finite positive number, got ${String(ratePerSecond)}`)
+    throw new RangeError(
+      `ratePerSecond must be a finite positive number, got ${String(ratePerSecond)}`,
+    )
   }
   const u = Math.min(Math.max(rng.next(), Number.EPSILON), 1 - Number.EPSILON)
   return (-Math.log(u) / ratePerSecond) * 1000

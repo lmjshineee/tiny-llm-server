@@ -8,6 +8,7 @@ interface KvPanelProps {
 }
 
 const CELL_COUNT = 64
+const CELL_IDS = Array.from({ length: CELL_COUNT }, (_, index) => `kv-cell-${index}`)
 
 export function KvPanel({ view, result }: KvPanelProps) {
   if (view === null) {
@@ -79,19 +80,19 @@ export function KvPanel({ view, result }: KvPanelProps) {
       </div>
 
       <div className="kv-map" aria-hidden="true">
-        {Array.from({ length: CELL_COUNT }, (_, index) => {
+        {CELL_IDS.map((cellId, index) => {
           const state =
             index < activeCells
               ? 'active'
               : index < activeCells + retainedCells
                 ? 'retained'
                 : 'free'
-          return <span key={index} className={`kv-cell kv-cell-${state}`} />
+          return <span key={cellId} className={`kv-cell kv-cell-${state}`} />
         })}
       </div>
       <p className="caption">
-        Capacity map (aggregated; not physical block IDs). Each cell represents a range of
-        blocks. The trace stores occupancy counts, not per-block ownership.
+        Capacity map (aggregated; not physical block IDs). Each cell represents a range of blocks.
+        The trace stores occupancy counts, not per-block ownership.
       </p>
 
       <dl className="kv-stats">
@@ -124,9 +125,7 @@ export function KvPanel({ view, result }: KvPanelProps) {
       <div className="prefix-summary">
         <div className="prefix-summary-head">
           <h3>Prefix cache</h3>
-          <span className="mini-pill">
-            {formatPercent(prefix.tokenHitRate)} token hit
-          </span>
+          <span className="mini-pill">{formatPercent(prefix.tokenHitRate)} token hit</span>
         </div>
         <p>
           {prefix.hitRequests}/{prefix.totalRequests} requests reused{' '}
@@ -136,8 +135,8 @@ export function KvPanel({ view, result }: KvPanelProps) {
           <p className="muted">No prefix hits in this run. Try the prefix-heavy scenario.</p>
         ) : null}
         <p className="caption">
-          Physical blocks are shared by reference; logical blocks count a shared block per
-          request. Worst-case reservations still bound admission.
+          Physical blocks are shared by reference; logical blocks count a shared block per request.
+          Worst-case reservations still bound admission.
         </p>
       </div>
     </section>

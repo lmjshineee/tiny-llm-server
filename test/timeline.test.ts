@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  FcfsScheduler,
-  createEngineConfig,
-  runSimulation,
-} from '../src/core/index'
-import {
-  buildRequestHistories,
-  deriveStepView,
-  lastStepIndex,
-} from '../src/app/lib/timeline'
+import { FcfsScheduler, createEngineConfig, runSimulation } from '../src/core/index'
+import { buildRequestHistories, deriveStepView, lastStepIndex } from '../src/app/lib/timeline'
 import type { SimulationResult } from '../src/core/index'
 
 const COST = {

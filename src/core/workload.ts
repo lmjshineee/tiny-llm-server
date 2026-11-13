@@ -110,8 +110,7 @@ export function createWorkloadConfig(overrides: DeepPartial<WorkloadConfig> = {}
       enabled: overrides.prefix?.enabled ?? base.prefix.enabled,
       poolSize: overrides.prefix?.poolSize ?? base.prefix.poolSize,
       tokens: overrides.prefix?.tokens ?? base.prefix.tokens,
-      requestProbability:
-        overrides.prefix?.requestProbability ?? base.prefix.requestProbability,
+      requestProbability: overrides.prefix?.requestProbability ?? base.prefix.requestProbability,
     },
   }
 
@@ -119,7 +118,10 @@ export function createWorkloadConfig(overrides: DeepPartial<WorkloadConfig> = {}
   return config
 }
 
-function sampleClampedTokenCount(distribution: TokenDistribution, rng: ReturnType<typeof createRng>): number {
+function sampleClampedTokenCount(
+  distribution: TokenDistribution,
+  rng: ReturnType<typeof createRng>,
+): number {
   const raw =
     distribution.stddev === 0
       ? distribution.mean

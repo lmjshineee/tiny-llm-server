@@ -165,9 +165,7 @@ function makeState(
     outputProgress:
       outcome.maxNewTokens > 0 ? Math.min(1, point.outputTokens / outcome.maxNewTokens) : 0,
     logicalBlocks: point.admitted ? Math.ceil(sequenceTokens / blockSize) : 0,
-    prefixBlocks: point.admitted
-      ? Math.ceil(outcome.prefixHitTokens / blockSize)
-      : 0,
+    prefixBlocks: point.admitted ? Math.ceil(outcome.prefixHitTokens / blockSize) : 0,
   }
 }
 

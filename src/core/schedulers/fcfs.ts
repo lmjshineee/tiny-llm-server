@@ -24,7 +24,11 @@ export class FcfsScheduler implements Scheduler {
       }
 
       const pendingPromptTokens = current.promptTokens - current.prefilledTokens
-      const tokens = Math.min(pendingPromptTokens, config.prefillChunkSize, config.maxNumBatchedTokens)
+      const tokens = Math.min(
+        pendingPromptTokens,
+        config.prefillChunkSize,
+        config.maxNumBatchedTokens,
+      )
       const prefill: PrefillIntent[] = tokens > 0 ? [{ requestId: current.id, tokens }] : []
       return { admit: [], prefill, decode: [] }
     }

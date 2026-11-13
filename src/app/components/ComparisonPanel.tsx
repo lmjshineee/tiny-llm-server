@@ -80,10 +80,7 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
     },
   ]
 
-  const throughputs = [
-    fcfs.throughputRequestsPerSecond,
-    continuous.throughputRequestsPerSecond,
-  ]
+  const throughputs = [fcfs.throughputRequestsPerSecond, continuous.throughputRequestsPerSecond]
   const throughputMax = Math.max(...throughputs, 1)
   const ttfts = [fcfs.ttftMs.p95 ?? 0, continuous.ttftMs.p95 ?? 0]
   const ttftMax = Math.max(...ttfts, 1)
@@ -116,7 +113,7 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
         </article>
       </div>
 
-      <div className="bar-charts" aria-label="Headline metric comparison">
+      <div className="bar-charts">
         <BarPair
           label="Throughput (req/s)"
           fcfsValue={throughputs[0] ?? 0}
@@ -164,8 +161,8 @@ export function ComparisonPanel({ lab }: ComparisonPanelProps) {
       </div>
 
       <p className="caption">
-        Lower latency is better; higher throughput is better. These are outputs of a synthetic
-        cost model, not hardware measurements.
+        Lower latency is better; higher throughput is better. These are outputs of a synthetic cost
+        model, not hardware measurements.
       </p>
     </section>
   )

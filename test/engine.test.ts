@@ -357,9 +357,13 @@ describe('engine guards and plan validation', () => {
 
   it('rejects requests larger than the whole KV cache', () => {
     expect(() =>
-      runWith([{ id: 'a', arrivalTime: 0, promptTokens: 8, maxNewTokens: 4 }], new FcfsScheduler(), {
-        kv: { blockSize: 4, totalBlocks: 2 },
-      }),
+      runWith(
+        [{ id: 'a', arrivalTime: 0, promptTokens: 8, maxNewTokens: 4 }],
+        new FcfsScheduler(),
+        {
+          kv: { blockSize: 4, totalBlocks: 2 },
+        },
+      ),
     ).toThrow(RequestTooLargeError)
   })
 
@@ -413,15 +417,23 @@ describe('engine guards and plan validation', () => {
 
   it('enforces the maxSteps and maxSimTime guards', () => {
     expect(() =>
-      runWith([{ id: 'a', arrivalTime: 0, promptTokens: 4, maxNewTokens: 5 }], new FcfsScheduler(), {
-        maxSteps: 1,
-      }),
+      runWith(
+        [{ id: 'a', arrivalTime: 0, promptTokens: 4, maxNewTokens: 5 }],
+        new FcfsScheduler(),
+        {
+          maxSteps: 1,
+        },
+      ),
     ).toThrow(SimulationLimitError)
 
     expect(() =>
-      runWith([{ id: 'a', arrivalTime: 0, promptTokens: 4, maxNewTokens: 2 }], new FcfsScheduler(), {
-        maxSimTimeMs: 1,
-      }),
+      runWith(
+        [{ id: 'a', arrivalTime: 0, promptTokens: 4, maxNewTokens: 2 }],
+        new FcfsScheduler(),
+        {
+          maxSimTimeMs: 1,
+        },
+      ),
     ).toThrow(SimulationLimitError)
   })
 })

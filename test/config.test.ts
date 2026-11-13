@@ -47,12 +47,8 @@ describe('createEngineConfig', () => {
   it('rejects invalid KV and latency parameters', () => {
     expect(() => createEngineConfig({ kv: { blockSize: 0 } })).toThrow(ConfigError)
     expect(() => createEngineConfig({ kv: { totalBlocks: -1 } })).toThrow(ConfigError)
-    expect(() =>
-      createEngineConfig({ cost: { prefillMsPerToken: 0 } }),
-    ).toThrow(ConfigError)
-    expect(() =>
-      createEngineConfig({ cost: { stepOverheadMs: Number.NaN } }),
-    ).toThrow(ConfigError)
+    expect(() => createEngineConfig({ cost: { prefillMsPerToken: 0 } })).toThrow(ConfigError)
+    expect(() => createEngineConfig({ cost: { stepOverheadMs: Number.NaN } })).toThrow(ConfigError)
   })
 })
 

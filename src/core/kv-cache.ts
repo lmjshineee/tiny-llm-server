@@ -97,7 +97,9 @@ export class PagedKVCache implements CacheView {
       throw new RangeError(`blockSize must be a positive integer, got ${String(config.blockSize)}`)
     }
     if (!Number.isSafeInteger(config.totalBlocks) || config.totalBlocks <= 0) {
-      throw new RangeError(`totalBlocks must be a positive integer, got ${String(config.totalBlocks)}`)
+      throw new RangeError(
+        `totalBlocks must be a positive integer, got ${String(config.totalBlocks)}`,
+      )
     }
 
     this.blockSize = config.blockSize
@@ -194,7 +196,9 @@ export class PagedKVCache implements CacheView {
         throw new ReservationError('prefix key must be a non-empty string')
       }
       if (!Number.isSafeInteger(prefix.tokens) || prefix.tokens < 0) {
-        throw new RangeError(`prefix tokens must be a non-negative integer, got ${String(prefix.tokens)}`)
+        throw new RangeError(
+          `prefix tokens must be a non-negative integer, got ${String(prefix.tokens)}`,
+        )
       }
 
       const cappedTokens = Math.min(prefix.tokens, totalTokens)
@@ -356,7 +360,9 @@ export class PagedKVCache implements CacheView {
         throw new Error(`KV invariant: request "${requestId}" has prefix tokens without a key`)
       }
       if (entry.prefixTokens === 0 && entry.prefixKey !== null) {
-        throw new Error(`KV invariant: request "${requestId}" has a prefix key without prefix tokens`)
+        throw new Error(
+          `KV invariant: request "${requestId}" has a prefix key without prefix tokens`,
+        )
       }
 
       const prefixBlockCount = entry.prefixTokens / this.blockSize
@@ -364,7 +370,10 @@ export class PagedKVCache implements CacheView {
       if (entry.prefixHitTokens % this.blockSize !== 0 || !Number.isSafeInteger(hitBlocks)) {
         throw new Error(`KV invariant: request "${requestId}" has a non-block-aligned prefix hit`)
       }
-      if (hitBlocks > entry.registeredPrefixBlocks || entry.registeredPrefixBlocks > prefixBlockCount) {
+      if (
+        hitBlocks > entry.registeredPrefixBlocks ||
+        entry.registeredPrefixBlocks > prefixBlockCount
+      ) {
         throw new Error(`KV invariant: request "${requestId}" prefix registration is inconsistent`)
       }
       if (entry.prefixHitTokens > entry.allocatedTokens) {
@@ -374,7 +383,9 @@ export class PagedKVCache implements CacheView {
       const seen = new Set<number>()
       for (const blockId of entry.blockIds) {
         if (!Number.isSafeInteger(blockId) || blockId < 0 || blockId >= this.totalBlocks) {
-          throw new Error(`KV invariant: request "${requestId}" owns out-of-range block ${String(blockId)}`)
+          throw new Error(
+            `KV invariant: request "${requestId}" owns out-of-range block ${String(blockId)}`,
+          )
         }
         if (seen.has(blockId)) {
           throw new Error(`KV invariant: request "${requestId}" references block ${blockId} twice`)
@@ -445,25 +456,39 @@ export class PagedKVCache implements CacheView {
     }
 
     if (physical.size !== this.#physicalBlocks) {
-      throw new Error(`KV invariant: physicalBlocks is ${this.#physicalBlocks}, blocks say ${physical.size}`)
+      throw new Error(
+        `KV invariant: physicalBlocks is ${this.#physicalBlocks}, blocks say ${physical.size}`,
+      )
     }
     if (allocated !== this.#allocatedBlocks) {
-      throw new Error(`KV invariant: allocatedBlocks is ${this.#allocatedBlocks}, references say ${allocated}`)
+      throw new Error(
+        `KV invariant: allocatedBlocks is ${this.#allocatedBlocks}, references say ${allocated}`,
+      )
     }
     if (cachedIdle !== this.#cachedBlocks) {
-      throw new Error(`KV invariant: cachedBlocks is ${this.#cachedBlocks}, idle cache says ${cachedIdle}`)
+      throw new Error(
+        `KV invariant: cachedBlocks is ${this.#cachedBlocks}, idle cache says ${cachedIdle}`,
+      )
     }
     if (shared !== this.#sharedBlocks) {
-      throw new Error(`KV invariant: sharedBlocks is ${this.#sharedBlocks}, references say ${shared}`)
+      throw new Error(
+        `KV invariant: sharedBlocks is ${this.#sharedBlocks}, references say ${shared}`,
+      )
     }
     if (logical !== this.#logicalBlocks) {
-      throw new Error(`KV invariant: logicalBlocks is ${this.#logicalBlocks}, block tables say ${logical}`)
+      throw new Error(
+        `KV invariant: logicalBlocks is ${this.#logicalBlocks}, block tables say ${logical}`,
+      )
     }
     if (reserved !== this.#reservedBlocks) {
-      throw new Error(`KV invariant: reservedBlocks is ${this.#reservedBlocks}, reservations say ${reserved}`)
+      throw new Error(
+        `KV invariant: reservedBlocks is ${this.#reservedBlocks}, reservations say ${reserved}`,
+      )
     }
     if (reserved > this.totalBlocks) {
-      throw new Error(`KV invariant: reservations exceed capacity (${reserved} > ${this.totalBlocks})`)
+      throw new Error(
+        `KV invariant: reservations exceed capacity (${reserved} > ${this.totalBlocks})`,
+      )
     }
     if (this.#idleCachedBlocks.size !== cachedIdle) {
       throw new Error('KV invariant: idle cache set size does not match cached counters')

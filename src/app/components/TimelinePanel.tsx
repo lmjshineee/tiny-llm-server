@@ -35,7 +35,8 @@ export function TimelinePanel({
           <p className="panel-kicker">Trace playback</p>
           <h2 id="timeline-title">Step-by-step timeline</h2>
         </div>
-        <div className="tab-group" role="group" aria-label="Timeline scheduler">
+        <fieldset className="tab-group">
+          <legend className="sr-only">Timeline scheduler</legend>
           {SCHEDULER_TABS.map((entry) => (
             <button
               key={entry.id}
@@ -47,7 +48,7 @@ export function TimelinePanel({
               {entry.label}
             </button>
           ))}
-        </div>
+        </fieldset>
       </div>
 
       {view === null ? (
@@ -85,7 +86,7 @@ export function TimelinePanel({
             </div>
           </div>
 
-          <div className="timeline-chips" aria-label="Selected step details">
+          <div className="timeline-chips">
             <span className="chip">latency {formatMs(view.step.latencyMs)}</span>
             <span className="chip">{formatCount(view.step.prefillTokens)} prefill tok</span>
             <span className="chip">{formatCount(view.step.decodeTokens)} decode tok</span>
@@ -93,9 +94,7 @@ export function TimelinePanel({
             <span className="chip">
               queue {view.waiting.length} · running {view.running.length}
             </span>
-            <span className="chip chip-accent">
-              {schedulerLabel(tab)} trace
-            </span>
+            <span className="chip chip-accent">{schedulerLabel(tab)} trace</span>
           </div>
 
           <div className="mini-timeline" aria-hidden="true">

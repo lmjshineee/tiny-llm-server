@@ -15,10 +15,8 @@ export interface RequestViewInput {
 export function makeRequestView(input: RequestViewInput = {}): RequestView {
   const promptTokens = input.promptTokens ?? 10
   const state = input.state ?? 'waiting'
-  const prefilledTokens =
-    input.prefilledTokens ?? (state === 'waiting' ? 0 : promptTokens)
-  const outputTokens =
-    input.outputTokens ?? (state === 'decode' || state === 'finished' ? 1 : 0)
+  const prefilledTokens = input.prefilledTokens ?? (state === 'waiting' ? 0 : promptTokens)
+  const outputTokens = input.outputTokens ?? (state === 'decode' || state === 'finished' ? 1 : 0)
 
   return {
     id: input.id ?? 'req-1',

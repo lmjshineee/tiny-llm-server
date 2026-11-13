@@ -136,7 +136,11 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
     <li className="request-row">
       <div className="request-main">
         <span className="request-id">{request.id}</span>
-        <span className={request.state === 'prefill' ? 'state-badge state-prefill' : 'state-badge state-decode'}>
+        <span
+          className={
+            request.state === 'prefill' ? 'state-badge state-prefill' : 'state-badge state-decode'
+          }
+        >
           {request.state}
         </span>
         {request.prefixHitTokens > 0 ? (
@@ -153,7 +157,10 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
           </span>
         </div>
         <div className="progress-track" aria-hidden="true">
-          <div className="progress-fill progress-fill-prompt" style={{ width: `${request.promptProgress * 100}%` }} />
+          <div
+            className="progress-fill progress-fill-prompt"
+            style={{ width: `${request.promptProgress * 100}%` }}
+          />
         </div>
       </div>
 
@@ -165,7 +172,10 @@ function RunningRow({ request }: { readonly request: RequestTimelineState }) {
           </span>
         </div>
         <div className="progress-track" aria-hidden="true">
-          <div className="progress-fill progress-fill-output" style={{ width: `${request.outputProgress * 100}%` }} />
+          <div
+            className="progress-fill progress-fill-output"
+            style={{ width: `${request.outputProgress * 100}%` }}
+          />
         </div>
       </div>
 

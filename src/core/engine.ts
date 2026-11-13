@@ -382,7 +382,10 @@ class Simulator {
       endMs,
       latencyMs,
       admitted: [...plan.admit],
-      prefilled: prefilled.map((intent) => ({ requestId: intent.requestId, tokens: intent.tokens })),
+      prefilled: prefilled.map((intent) => ({
+        requestId: intent.requestId,
+        tokens: intent.tokens,
+      })),
       decoded: [...plan.decode],
       prefillTokens,
       decodeTokens,
@@ -429,13 +432,19 @@ class Simulator {
       }
       const request = waitingById.get(requestId)
       if (request === undefined) {
-        throw new PlanValidationError(`request "${requestId}" cannot be admitted: it is not waiting`)
+        throw new PlanValidationError(
+          `request "${requestId}" cannot be admitted: it is not waiting`,
+        )
       }
       if (request.state !== 'waiting') {
-        throw new PlanValidationError(`request "${requestId}" cannot be admitted in state "${request.state}"`)
+        throw new PlanValidationError(
+          `request "${requestId}" cannot be admitted in state "${request.state}"`,
+        )
       }
       if (this.#cache.has(requestId)) {
-        throw new PlanValidationError(`waiting request "${requestId}" already holds a KV reservation`)
+        throw new PlanValidationError(
+          `waiting request "${requestId}" already holds a KV reservation`,
+        )
       }
       admitted.add(requestId)
     }
@@ -459,12 +468,16 @@ class Simulator {
         : runningById.get(intent.requestId)
 
       if (request === undefined) {
-        throw new PlanValidationError(`cannot prefill "${intent.requestId}": it is neither waiting nor running`)
+        throw new PlanValidationError(
+          `cannot prefill "${intent.requestId}": it is neither waiting nor running`,
+        )
       }
 
       if (admitted.has(intent.requestId)) {
         if (request.state !== 'waiting') {
-          throw new PlanValidationError(`newly admitted request "${request.id}" must still be waiting`)
+          throw new PlanValidationError(
+            `newly admitted request "${request.id}" must still be waiting`,
+          )
         }
       } else if (request.state !== 'prefill') {
         throw new PlanValidationError(
@@ -506,7 +519,9 @@ class Simulator {
         )
       }
       if (request.outputTokens >= request.maxNewTokens) {
-        throw new PlanValidationError(`request "${requestId}" already generated all requested tokens`)
+        throw new PlanValidationError(
+          `request "${requestId}" already generated all requested tokens`,
+        )
       }
 
       decoded.add(requestId)

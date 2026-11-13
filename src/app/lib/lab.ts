@@ -5,11 +5,7 @@ import {
   createEngineConfig,
   runSimulation,
 } from '../../core/index'
-import type {
-  BenchmarkScenarioInput,
-  EngineConfig,
-  SimulationResult,
-} from '../../core/index'
+import type { BenchmarkScenarioInput, EngineConfig, SimulationResult } from '../../core/index'
 
 export type SchedulerTab = 'fcfs' | 'continuous-batching'
 

@@ -138,9 +138,9 @@ export function App() {
           <p className="eyebrow">LLM Serving Lab · Phase 4 visualizer</p>
           <h1>Inference scheduling, visualized.</h1>
           <p className="lede">
-            Step through an event-driven serving simulation. Compare sequential FCFS with
-            continuous batching, inspect queueing and request phases, and watch a paged KV
-            cache fill up and share prefix blocks.
+            Step through an event-driven serving simulation. Compare sequential FCFS with continuous
+            batching, inspect queueing and request phases, and watch a paged KV cache fill up and
+            share prefix blocks.
           </p>
           <div className="badge-row">
             <span className="badge badge-warn">SIMULATED</span>
@@ -149,7 +149,7 @@ export function App() {
             <span className="badge badge-muted">synthetic latency model</span>
           </div>
         </div>
-        <div className="hero-aside" aria-label="Current run summary">
+        <div className="hero-aside">
           <p className="aside-label">Current run</p>
           <strong>{lab.controls.scenario}</strong>
           <span>seed {lab.controls.seed}</span>
@@ -162,9 +162,9 @@ export function App() {
 
       <div className="disclaimer" role="note">
         <strong>Simulation-only.</strong> Every latency, throughput, and cache number below is
-        produced by a synthetic analytical cost model. No model is executed and no Apple
-        Silicon, CUDA, or Ascend hardware performance is being measured. Prefix identities are
-        synthetic keys, not hashes of real prompt tokens.
+        produced by a synthetic analytical cost model. No model is executed and no Apple Silicon,
+        CUDA, or Ascend hardware performance is being measured. Prefix identities are synthetic
+        keys, not hashes of real prompt tokens.
       </div>
 
       <ControlPanel
@@ -217,8 +217,8 @@ export function App() {
           reproducible simulations, not benchmarks.
         </p>
         <p>
-          Built for the {`${lab.engine.kv.blockSize}`}-token block size; prefix hits are capped
-          to leave at least one prompt token for the normal prefill path.
+          Built for the {`${lab.engine.kv.blockSize}`}-token block size; prefix hits are capped to
+          leave at least one prompt token for the normal prefill path.
         </p>
       </footer>
     </main>

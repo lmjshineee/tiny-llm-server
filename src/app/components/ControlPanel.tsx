@@ -12,13 +12,7 @@ interface ControlPanelProps {
 const BATCH_OPTIONS = [4, 8, 16] as const
 const KV_OPTIONS = [512, 1024, 2048] as const
 
-export function ControlPanel({
-  controls,
-  scenarios,
-  onChange,
-  onRun,
-  error,
-}: ControlPanelProps) {
+export function ControlPanel({ controls, scenarios, onChange, onRun, error }: ControlPanelProps) {
   const update = (patch: Partial<LabControls>): void => {
     onChange({ ...controls, ...patch })
   }

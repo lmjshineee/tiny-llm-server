@@ -149,9 +149,7 @@ describe('ContinuousBatchingScheduler', () => {
       kv: { blockSize: 4, totalBlocks: 100 },
     })
 
-    const plan = new ContinuousBatchingScheduler().plan(
-      cbContext({ running, waiting, config }),
-    )
+    const plan = new ContinuousBatchingScheduler().plan(cbContext({ running, waiting, config }))
 
     const totalTokens =
       plan.decode.length + plan.prefill.reduce((sum, intent) => sum + intent.tokens, 0)
@@ -217,9 +215,7 @@ describe('ContinuousBatchingScheduler', () => {
       kv: { blockSize: 4, totalBlocks: 100 },
     })
 
-    const plan = new ContinuousBatchingScheduler().plan(
-      cbContext({ running, waiting, config }),
-    )
+    const plan = new ContinuousBatchingScheduler().plan(cbContext({ running, waiting, config }))
 
     expect(plan.decode).toHaveLength(3)
     expect(plan.admit).toEqual([])

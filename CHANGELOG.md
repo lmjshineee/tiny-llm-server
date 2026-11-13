@@ -3,6 +3,24 @@
 All notable changes to this project are documented here. The project is a simulation lab; all
 default latency and throughput values are synthetic and are not hardware measurements.
 
+## [0.5.1] — 2026-11-13
+
+### Added
+
+- Bilingual UI (中文 / English) with browser-language detection, a header language switch,
+  `?lang=zh|en` deep links, and localStorage persistence.
+- First-visit beginner guide explaining the simulation, how to run it, and the core metrics.
+- Chinese labels for controls, metrics, request states, KV statistics, and the comparison view.
+
+### Fixed
+
+- Aligned the seed input with the other control fields on wide screens (uniform width; native
+  number spinners hidden).
+
+### Tests
+
+- 14 test files, 85 tests, including Chinese UI and language-switch coverage.
+
 ## [0.5.0] — 2026-11-13
 
 ### Added

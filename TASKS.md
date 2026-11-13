@@ -233,7 +233,7 @@ Commits:
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Types + lint + tests | `pnpm check` | 14 files, 84 tests, pass |
+| Types + lint + tests | `pnpm check` | 14 files, 85 tests, pass |
 | Formatting | `pnpm format:check` | pass |
 | Coverage | `pnpm test:coverage` | thresholds enforced |
 | Web build | `pnpm build:web` | pass with relative base |
@@ -248,6 +248,7 @@ Commits:
 - `ci: add Node matrix, schema validation, and Pages workflow`
 - `docs: add contributor docs and update Phase 5 status`
 - `docs: add live demo and CI badges`
+- `feat(ui): add bilingual interface and beginner guide`
 
 ## M6 — Realism and calibration ⏳
 
@@ -296,3 +297,5 @@ Commits:
 - `ci: add Node matrix, schema validation, and Pages workflow`
 - `docs: add contributor docs and update Phase 5 status`
 - `docs: add live demo and CI badges`
+- `feat(ui): add bilingual interface and beginner guide`
+- `docs: refresh bilingual visualizer screenshots`

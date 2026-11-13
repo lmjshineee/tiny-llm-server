@@ -4,8 +4,8 @@
 > Apple Silicon laptop — without running a model or owning a GPU.
 
 **Phase 5 (P0) status:** event-driven simulator, FCFS and continuous batching, paged KV cache,
-retained prefix cache, seeded benchmark matrix, React trace visualizer, plus Biome lint/format,
-coverage gates, a versioned benchmark JSON Schema, Node 22/24 CI, and contributor docs.
+retained prefix cache, seeded benchmark matrix, bilingual React trace visualizer, plus Biome
+lint/format, coverage gates, a versioned benchmark JSON Schema, Node 22/24 CI, and contributor docs.
 
 [![CI](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/ci.yml)
 [![Deploy visualizer](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/pages.yml/badge.svg)](https://github.com/lmjshineee/tiny-llm-server/actions/workflows/pages.yml)
@@ -82,9 +82,10 @@ pnpm validate:bench bench-smoke.json   # JSON Schema validation
 
 The React app is a thin consumer of `SimulationResult`; the scheduler core stays headless.
 
-<img src="docs/visualizer-bursty.png" alt="Screenshot of the simulated LLM serving visualizer showing a bursty scenario, performance comparison, timeline, 24 queued requests, 16 running requests, and KV cache occupancy" width="100%" />
+<img src="docs/visualizer-bursty.png" alt="Screenshot of the simulated LLM serving visualizer in Chinese, showing the beginner guide, bursty scenario comparison, timeline, 24 queued requests, 16 running requests, and KV cache occupancy" width="100%" />
 
-*The bursty scenario at step 194/555. Every number is simulated.*
+*Chinese UI with the beginner guide open. The bursty scenario is at step 194/555; every number
+is simulated.*
 
 - Scenario, seed, batch-size, and KV-capacity controls; runs both policies against identical
   requests.
@@ -93,6 +94,8 @@ The React app is a thin consumer of `SimulationResult`; the scheduler core stays
 - Waiting queue, running prefill/decode states, per-request prompt/output progress, prefix hits,
   and logical block counts.
 - Paged KV occupancy (active/retained/shared/reserved), a capacity map, and prefix-cache stats.
+- **Bilingual UI** (中文 / English) with a first-visit guide; the language follows the browser and
+  can be switched in the header. Add `?lang=zh` or `?lang=en` to the URL to force one.
 
 A prefix-cache view is available at
 [`docs/visualizer-prefix.png`](docs/visualizer-prefix.png). Start the app with:
@@ -106,12 +109,12 @@ pnpm preview:web             # preview the production build
 Deep links initialize the app from the URL:
 
 ```text
-http://localhost:5173/?scenario=prefix-heavy&tab=continuous-batching&step=0.8&seed=42
+http://localhost:5173/?scenario=prefix-heavy&tab=continuous-batching&step=0.8&seed=42&lang=zh
 ```
 
 `scenario`, `seed`, `batch` (4/8/16), `kv` (512/1024/2048), `tab` (`fcfs`/`continuous-batching`),
-and `step` (0..1 fraction of the trace) are supported. The UI stores occupancy aggregates, not
-physical block IDs, so the KV map is explicitly labeled as aggregated.
+`step` (0..1 fraction of the trace), and `lang` (`zh`/`en`) are supported. The UI stores occupancy
+aggregates, not physical block IDs, so the KV map is explicitly labeled as aggregated.
 
 ## Example output
 
@@ -317,7 +320,7 @@ TASKS.md             milestone plan and verification record
 ## Testing and CI
 
 ```text
-14 test files, 84 tests (as of Phase 5 P0)
+14 test files, 85 tests (as of Phase 5 P0 + UI polish)
 - exact scheduler and engine timing tests
 - KV allocation/free/capacity tests
 - prefix sharing, retention, contiguous-hit, and LRU-eviction tests
@@ -382,8 +385,9 @@ unless explicitly marked as measured.
 
 第五阶段 P0 已完成：Biome lint/format、Vitest 覆盖率门槛、Node 22/24 CI、benchmark
 JSON Schema 校验、CONTRIBUTING/CHANGELOG/issue 模板，以及 GitHub Pages 静态部署 workflow。
-公开 demo 已部署在 <https://lmjshineee.github.io/tiny-llm-server/>。M6（prefix-aware
-admission/preemption）和小模型校准尚未开始。当前共有 14 个测试文件、84 个单元/属性/UI 测试。
+公开 demo 已部署在 <https://lmjshineee.github.io/tiny-llm-server/>。界面支持中文/English
+切换、浏览器语言检测与新手导览；可用 `?lang=zh` 强制中文。M6（prefix-aware
+admission/preemption）和小模型校准尚未开始。当前共有 14 个测试文件、85 个单元/属性/UI 测试。
 
 ```bash
 pnpm install && pnpm check       # typecheck + lint + tests

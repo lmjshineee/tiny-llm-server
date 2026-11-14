@@ -1,0 +1,6 @@
+{
+  "note": "llama-server -c 4096 -ngl 99 -np 1, Q4_K_M, prompt = 1020 tokens, n_predict 64, temperature 0",
+  "cold_first_request": { "prompt_n": 1020, "prompt_ms": 828.653, "prompt_t_per_s": 1230.9, "predicted_per_s": 194.9 },
+  "warm_request": { "prompt_n": 1020, "prompt_ms": 157.024, "prompt_t_per_s": 6495.8, "predicted_per_s": 202.1 },
+  "prefix_cache_hit": { "prompt_n": 1, "cache_n": 1019, "prompt_ms_samples": [17.732, 6.547] }
+}

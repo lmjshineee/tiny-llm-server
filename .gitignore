@@ -26,3 +26,6 @@ bench-smoke.json
 
 # local browser verification profiles
 .chrome-*/
+
+# local model weights (calibration)
+models/

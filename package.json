@@ -11,6 +11,7 @@
   "packageManager": "pnpm@12.18.0",
   "scripts": {
     "demo": "tsx src/cli/demo.ts",
+    "demo:calibration": "tsx src/cli/calibration-demo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

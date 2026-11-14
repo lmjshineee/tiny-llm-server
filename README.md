@@ -347,6 +347,7 @@ A structured, internship-oriented path for this project: **8 weeks at ~15 hours/
 inference fundamentals, scheduling/memory trade-offs, experiments, and portfolio preparation.
 It is a plan, not a claim that M6 or measured calibration is implemented.
 
+- [Deep dive: from Transformer to inference serving (Chinese, start here)](docs/learning/FROM_TRANSFORMER_TO_SERVING.md)
 - [8-week roadmap and weekly schedule](docs/learning/README.md)
 - [Concepts: prefill/decode, KV math, metrics, queueing, prefix cache](docs/learning/CONCEPTS.md)
 - [Experiment playbook: 10 exercises using this lab](docs/learning/EXPERIMENTS.md)
@@ -399,8 +400,10 @@ pnpm demo --prefix-cache && pnpm bench
 UI 截图见 `docs/visualizer-bursty.png` 与 `docs/visualizer-prefix.png`；KV 容量图是聚合
 占用，不是物理 block ID。
 
-配套中文学习文档位于 `docs/learning/`：8 周 × 15 小时的路线，包含概念地图、10 个实验、
-实习/面试准备、论文与源码资源、周记模板。它是学习计划，不代表 M6/实测校准已实现。
+配套中文学习文档位于 `docs/learning/`：**零服务端基础的读者可先看
+[《从 Transformer 到推理服务》](docs/learning/FROM_TRANSFORMER_TO_SERVING.md)**（代码精读 + 手算 + 8 个实验），
+另有 8 周 × 15 小时的路线、概念地图、10 个实验、实习/面试准备、论文与源码资源、周记模板。
+路线是学习计划，不代表 M6/实测校准已实现。
 
 ## Contributing
 

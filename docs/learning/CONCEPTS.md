@@ -1,6 +1,10 @@
 # 概念地图：LLM 推理与调度
 
 > 目标不是背定义，而是能在白板上解释“为什么”。每个概念都尽量对应到本项目的代码或实验。
+>
+> 如果你只写过类 Llama 的 Transformer、没接触过推理服务：先读
+> [《从 Transformer 到推理服务》](FROM_TRANSFORMER_TO_SERVING.md)，
+> 本文可以当它的速查表。
 
 ---
 

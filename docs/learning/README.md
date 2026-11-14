@@ -35,7 +35,7 @@
 
 | 周 | 主题 | 阅读 | 动手 | 本周产出 |
 | --- | --- | --- | --- | --- |
-| 1 | 建立地图 | 项目 README / ARCHITECTURE；Orca 论文 | 跑 demo、bench、UI；画一张推理流程图 | `week-01.md` + 概念图 |
+| 1 | 建立地图 | 项目 README / ARCHITECTURE / [深度导学](FROM_TRANSFORMER_TO_SERVING.md)；Orca 论文 | 跑 demo、bench、UI；画一张推理流程图 | `week-01.md` + 概念图 |
 | 2 | Prefill / Decode / 指标 | Orca 复读 + 指标章节 | 实验 1–2；手算 KV Cache | `experiment-01.md` |
 | 3 | 排队与 batching | PagedAttention 论文 | 实验 3、4；观察 TTFT/TPOT 权衡 | `experiment-02.md` |
 | 4 | KV / Prefix Cache | 项目 KV 章节 + RadixAttention 选读 | 实验 5、6；对比 prefix on/off | `experiment-03.md` |
@@ -104,6 +104,7 @@
 
 | 文件 | 内容 |
 | --- | --- |
+| [`FROM_TRANSFORMER_TO_SERVING.md`](FROM_TRANSFORMER_TO_SERVING.md) | ★ **零服务端基础从这里开始**：从 Transformer forward 讲到调度/KV/prefix/benchmark，含代码精读、手算对账、8 个递进实验 |
 | [`CONCEPTS.md`](CONCEPTS.md) | 推理基础、KV 公式、指标、排队、prefix/preemption、自测题 |
 | [`EXPERIMENTS.md`](EXPERIMENTS.md) | 10 个实验、命令、报告模板、源码阅读路线 |
 | [`INTERNSHIP.md`](INTERNSHIP.md) | 简历、项目叙事、面试题、作品集清单 |

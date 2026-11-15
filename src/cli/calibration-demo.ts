@@ -29,9 +29,11 @@ interface DemoRequest {
   readonly promptTokens: number
   readonly outputTokens: number
   /** `realE2E: false` when the live run generated a different token count. */
-  readonly real:
-    | { readonly ttftMs: number; readonly tpotMs: number; readonly realE2E: boolean }
-    | null
+  readonly real: {
+    readonly ttftMs: number
+    readonly tpotMs: number
+    readonly realE2E: boolean
+  } | null
 }
 
 const PROFILES: readonly Profile[] = [

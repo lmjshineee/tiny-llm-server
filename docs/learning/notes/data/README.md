@@ -14,7 +14,9 @@ llama.cpp 0.9.0 build 12110（Metal）。模型：Qwen2.5-0.5B-Instruct GGUF。
 | `batched-q4-32.txt` | 批次 1/8/16/32，`-c 65536`，**报告采用的一轮** | 同上，`-c 65536 -npl 1,8,16,32` |
 | `server-timings.json` | 手动保存的服务内部 prompt 计时摘要、prefix cache；不是客户端 TTFT | 见[报告 §6](../calibration-01.md#6-服务端-prompt-计时与前缀复用) |
 
-JSON bench 文件是工具原始输出；server-timings 是响应字段的摘要，完整响应未保存。
+JSON bench 文件是工具原始输出（逐字节保留，不经格式化），server-timings 是响应字段的摘要，
+完整响应未保存。`biome.json` 特意把本目录排除在格式/静态检查之外：这里的数字应当保持
+测量工具打印时的原样，任何自动格式化都等于改动证据。
 上表命令中的 q4 是模型路径占位符；batched 两轮均使用 `-b 2048 -ub 512`。
 
 两轮 batched 的 b=1 基线分别是 198.9 与 228.4 tok/s（差约 15%）。

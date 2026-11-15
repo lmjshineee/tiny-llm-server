@@ -130,6 +130,32 @@ batch32 相差约 4.5 倍，说明这组单流拟合不能直接外推到高并�
 这不是项目原有 synthetic-v1 的验证结果，也不证明 roofline 是唯一修正方案；后续应比较
 分段曲线、算力项和调度开销，并留出测点验证。当前没有实现或启用 measured profile。
 
+### 5.1 真实服务路径：天花板提前到 batch≈8
+
+上面用 `llama-batched-bench`，它把 prefill 与 decode 分成两个阶段测量，得到的是 decode 阶段的上限。
+真实服务不会这样：请求陆续到达，prefill 与 decode 交错。用 `llama-server -np 16` 同时放 16 个
+请求（每个 521 prompt + 128 输出）重测，[数据](data/server-concurrency.json)：
+
+| batch | 1 | 2 | 4 | 8 | 16 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 聚合 decode tok/s | 227.1 | 350.3 | 599.9 | **762.9** | 730.5 |
+| TTFT ms | 72 | 142 | 270 | 442 | **751** |
+| 每请求 TPOT ms | 4.44 | 5.75 | 6.64 | 9.12 | 18.13 |
+| 每请求墙钟 ms | 636 | 873 | 1113 | 1599 | 3053 |
+
+三个结论：
+
+1. **吞吐在 batch≈8 就见顶，比 batched-bench 的 batch16 提前一半**，峰值也只有 763 而不是 1308
+   tok/s。差距（1.4–1.8 倍）来自 prefill 与 decode 交错：8–16 个请求的 prefill 抢占了 decode 的时间片。
+   服务端自报的 prompt 耗时也印证了这点——同样 521 token，单请求 77 ms，16 并发时平均 354 ms。
+2. **TTFT 随并发线性恶化**（72 → 751 ms，10 倍），因为每个后来的请求都要排队等前面请求的 prefill。
+   这是"批处理提升吞吐、牺牲延迟"的真实代价，比只看 decode 的 TPOT 更能说明问题。
+3. 所以"峰值吞吐"不是设备常数，而是**工作负载形状的函数**：相位分离的基准给出上限，
+   交错到达的服务给出可达值，两者差 1.4–1.8 倍。
+
+这意味着 measured profile 至少要能表达两件事：并发下的算力上限，以及 prefill 与 decode 的相互占用。
+当前线性成本模型两件都做不到；后续做 M6 时应先用这两组数据验证，再改代码。
+
 ## 6. 服务端 prompt 计时与前缀复用
 
 [保存的摘要](data/server-timings.json)来自 localhost llama-server，context4096，单 slot。

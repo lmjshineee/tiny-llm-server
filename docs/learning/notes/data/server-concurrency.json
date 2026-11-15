@@ -1,0 +1,82 @@
+{
+  "note": "llama-server -c 16384 -np 16 -ngl 99, Q4_K_M, prompt ~521 tokens, n_predict 128, temperature 0, cache_prompt false, 16 slots. Clients fire simultaneously from N threads.",
+  "client_streaming": [
+    {
+      "batch": 1,
+      "aggregate_decode_tok_s": 227.1,
+      "ttft_ms": 72.2,
+      "tpot_ms": 4.44,
+      "per_request_wall_ms": 636.0,
+      "output_tokens": 128
+    },
+    {
+      "batch": 2,
+      "aggregate_decode_tok_s": 350.3,
+      "ttft_ms": 142.3,
+      "tpot_ms": 5.75,
+      "per_request_wall_ms": 873.0,
+      "output_tokens": 256
+    },
+    {
+      "batch": 4,
+      "aggregate_decode_tok_s": 599.9,
+      "ttft_ms": 270.2,
+      "tpot_ms": 6.64,
+      "per_request_wall_ms": 1113.0,
+      "output_tokens": 512
+    },
+    {
+      "batch": 8,
+      "aggregate_decode_tok_s": 762.9,
+      "ttft_ms": 441.6,
+      "tpot_ms": 9.12,
+      "per_request_wall_ms": 1599.0,
+      "output_tokens": 1024
+    },
+    {
+      "batch": 16,
+      "aggregate_decode_tok_s": 730.5,
+      "ttft_ms": 750.7,
+      "tpot_ms": 18.13,
+      "per_request_wall_ms": 3053.0,
+      "output_tokens": 2048
+    }
+  ],
+  "server_reported_nonstreaming": [
+    {
+      "batch": 1,
+      "aggregate_tok_s": 179.5,
+      "mean_prompt_ms": 77.2,
+      "mean_tpot_ms": 4.96,
+      "per_request_wall_ms": 713.0
+    },
+    {
+      "batch": 2,
+      "aggregate_tok_s": 239.6,
+      "mean_prompt_ms": 124.1,
+      "mean_tpot_ms": 7.03,
+      "per_request_wall_ms": 1065.0
+    },
+    {
+      "batch": 4,
+      "aggregate_tok_s": 326.6,
+      "mean_prompt_ms": 608.2,
+      "mean_tpot_ms": 7.43,
+      "per_request_wall_ms": 1563.0
+    },
+    {
+      "batch": 8,
+      "aggregate_tok_s": 612.0,
+      "mean_prompt_ms": 316.6,
+      "mean_tpot_ms": 9.43,
+      "per_request_wall_ms": 1664.0
+    },
+    {
+      "batch": 16,
+      "aggregate_tok_s": 664.5,
+      "mean_prompt_ms": 354.1,
+      "mean_tpot_ms": 17.88,
+      "per_request_wall_ms": 3061.0
+    }
+  ]
+}

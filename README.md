@@ -13,9 +13,14 @@ lint/format, coverage gates, a versioned benchmark JSON Schema, Node 22/24 CI, a
 **Live demo:** <https://lmjshineee.github.io/tiny-llm-server/>
 
 > [!IMPORTANT]
-> **Everything here is simulated.** No transformer is executed, no CUDA/Metal/Ascend runtime is
-> used, and every latency or throughput number comes from a synthetic analytical cost model.
-> There are no fabricated hardware benchmark results in this repository.
+> **The simulator is still the default and everything it prints is simulated.** No transformer is
+> executed, no CUDA/Metal/Ascend runtime is used, and every default latency or throughput number
+> comes from a synthetic analytical cost model. There are no fabricated hardware benchmark
+> results in this repository.
+>
+> One *optional* cost profile (`measured-m5-q4-0.5b`) is fitted to real single-machine
+> measurements recorded in [`docs/learning/notes/calibration-01.md`](docs/learning/notes/calibration-01.md).
+> It is opt-in via `--profile`, never the default, and its limitations are part of the data.
 
 ## Why this exists
 
@@ -212,7 +217,24 @@ pnpm bench                                   # 80 runs, write bench-results.json
 pnpm bench --scenario prefix-heavy           # one scenario
 pnpm bench --scenario steady --chunks 256 --kv-blocks 1024
 pnpm bench --smoke --json                    # CI smoke: 2 runs, stdout JSON
+pnpm bench --profile measured-m5-q4-0.5b     # price the matrix with the measured cost profile
 ```
+
+### Cost profiles
+
+Two cost models exist and a report always names the one it used (`costModelVersion`):
+
+| Profile | Origin | Default |
+| --- | --- | --- |
+| `synthetic-v1` | Illustrative 7B-class 4-bit parameters; not measured | ✅ |
+| `measured-m5-q4-0.5b` | Five-point fit to Qwen2.5-0.5B Q4_K_M on an Apple M5 (llama.cpp + Metal), single stream, ~1k context | opt-in |
+
+The measured profile is deliberately narrow. It has no context-length term, no quadratic prefill
+term, and no batching ceiling, so it is accurate on short single-stream requests and increasingly
+optimistic elsewhere. Those gaps are listed in the profile itself
+([`src/core/cost-profiles.ts`](src/core/cost-profiles.ts)) and were measured, not guessed:
+see [calibration-01.md](docs/learning/notes/calibration-01.md). Reports from different profiles
+should never be compared directly.
 
 Captured output from `pnpm bench` (all numbers simulated):
 
@@ -356,8 +378,9 @@ It is a plan, not a claim that M6 or measured calibration is implemented.
 - [Notes and experiment templates](docs/learning/NOTES_TEMPLATE.md)
 
 The track is written in Chinese; code, commands, and the rest of the repository remain in
-English. M6 and measured calibration are still future work. All lab results are simulated
-unless explicitly marked as measured.
+English. M6 is partially done: an opt-in measured cost profile and its calibration report exist,
+while prefix-aware admission, preemption, and a roofline/batching term are still open. All lab
+results are simulated unless explicitly marked as measured.
 
 ## Roadmap
 
@@ -368,7 +391,7 @@ unless explicitly marked as measured.
 | 3 | Benchmark harness, scenario matrix, P99 reporting, versioned JSON export | ✅ Done |
 | 4 | React visualizer: timeline, queue, request states, KV occupancy, comparison | ✅ Done |
 | 5 | P0 hardening: lint/format, coverage, schema, CI matrix, OSS docs | 🟡 P0 complete |
-| 6 | Realism: prefix-aware admission/preemption; optional measured calibration | ⏳ Next |
+| 6 | Realism: prefix-aware admission/preemption; optional measured calibration (profile shipped, admission/preemption next) | 🟡 In progress |
 
 ## Engineering principles
 

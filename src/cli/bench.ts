@@ -4,6 +4,7 @@ import {
   BENCHMARK_SCHEMA_VERSION,
   COST_MODEL_VERSION,
   DEFAULT_BENCHMARK_SEED,
+  listCostProfileIds,
   runBenchmark,
 } from '../core/index'
 import type { BenchmarkReport, BenchmarkRun } from '../core/index'
@@ -14,6 +15,7 @@ const COLUMN_WIDTHS = [12, 24, 8, 10, 10, 11, 15, 8] as const
 interface BenchCliOptions {
   seed: number
   scenarios: string[] | undefined
+  profileId: string | undefined
   smoke: boolean
   json: boolean
   out: string | undefined
@@ -52,10 +54,19 @@ function parseIntegerList(value: string, flag: string): number[] {
   })
 }
 
+function parseProfileId(value: string): string {
+  const ids = listCostProfileIds()
+  if (!ids.includes(value)) {
+    throw new CliError(`unknown profile "${value}"; expected one of ${ids.join(', ')}`)
+  }
+  return value
+}
+
 function parseArgs(argv: readonly string[]): BenchCliOptions {
   const options: BenchCliOptions = {
     seed: DEFAULT_BENCHMARK_SEED,
     scenarios: undefined,
+    profileId: undefined,
     smoke: false,
     json: false,
     out: undefined,
@@ -108,6 +119,9 @@ function parseArgs(argv: readonly string[]): BenchCliOptions {
       case '--scenario':
         options.scenarios = [...(options.scenarios ?? []), value]
         break
+      case '--profile':
+        options.profileId = parseProfileId(value)
+        break
       case '--batch-sizes':
         options.batchSizes = parseIntegerList(value, flag)
         break
@@ -133,6 +147,8 @@ Usage:
 
 Options:
   --scenario <name>       run one scenario (repeatable); default all
+  --profile <id>          cost profile (default ${COST_MODEL_VERSION})
+                          ${listCostProfileIds().join(', ')}
   --smoke                 use a small steady scenario + one matrix cell (CI)
   --seed <n>              workload/benchmark seed (default ${DEFAULT_BENCHMARK_SEED})
   --batch-sizes <csv>     batch-size axis (default 8,16)
@@ -264,6 +280,7 @@ function main(): void {
     seed: options.seed,
     smoke: options.smoke,
     ...(options.scenarios !== undefined ? { scenarios: options.scenarios } : {}),
+    ...(options.profileId !== undefined ? { profileId: options.profileId } : {}),
     ...(options.batchSizes !== undefined ? { batchSizes: options.batchSizes } : {}),
     ...(options.prefillChunkSizes !== undefined
       ? { prefillChunkSizes: options.prefillChunkSizes }
@@ -287,6 +304,7 @@ function main(): void {
   process.stdout.write('LLM Serving Lab · Phase 5 benchmark harness\n')
   process.stdout.write('==================================================\n')
   process.stdout.write('SIMULATED — no model is executed and no GPU/NPU is used.\n')
+  process.stdout.write(`Cost profile: ${report.costModelVersion}\n`)
   printTable(report)
   process.stdout.write(
     `\nWrote ${outPath} (simulated report, schema ${BENCHMARK_SCHEMA_VERSION}).\n`,

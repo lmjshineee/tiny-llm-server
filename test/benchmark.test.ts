@@ -8,6 +8,30 @@ import {
 } from '../src/core/index'
 
 describe('benchmark harness', () => {
+  it('prices runs with the requested profile and labels the report', () => {
+    const synthetic = runBenchmark({ smoke: true, seed: 7 })
+    const measured = runBenchmark({ smoke: true, seed: 7, profileId: 'measured-m5-q4-0.5b' })
+
+    expect(synthetic.costModelVersion).toBe(COST_MODEL_VERSION)
+    expect(measured.costModelVersion).toBe('measured-m5-q4-0.5b')
+    expect(measured.costModelNote).toContain('Qwen2.5-0.5B')
+
+    // Same workload, same seed: only the cost model differs.
+    expect(measured.seed).toBe(synthetic.seed)
+    expect(measured.runCount).toBe(synthetic.runCount)
+    expect(measured.scenarios[0]?.requestCount).toBe(synthetic.scenarios[0]?.requestCount)
+
+    const measuredTpot = measured.scenarios[0]?.runs[0]?.summary.tpotMs.p50
+    const syntheticTpot = synthetic.scenarios[0]?.runs[0]?.summary.tpotMs.p50
+    expect(measuredTpot).toBeDefined()
+    expect(syntheticTpot).toBeDefined()
+    expect(measuredTpot ?? 0).toBeLessThan(syntheticTpot ?? 0)
+  })
+
+  it('rejects an unknown cost profile', () => {
+    expect(() => runBenchmark({ smoke: true, profileId: 'measured-m4' })).toThrow(ConfigError)
+  })
+
   it('produces a deterministic, versioned, JSON-safe smoke report', () => {
     const first = runBenchmark({ smoke: true })
     const second = runBenchmark({ smoke: true })

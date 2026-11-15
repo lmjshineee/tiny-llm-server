@@ -28,6 +28,14 @@ export type {
   SchedulerKind,
 } from './benchmark'
 export { estimateStepLatency } from './cost-model'
+export {
+  COST_PROFILES,
+  DEFAULT_COST_PROFILE_ID,
+  getCostProfile,
+  isCostProfileId,
+  listCostProfileIds,
+} from './cost-profiles'
+export type { CostProfile, CostProfileProvenance } from './cost-profiles'
 export { runSimulation } from './engine'
 export type { RunSimulationInput, SimulationMeta, SimulationResult } from './engine'
 export { PagedKVCache, blocksForTokens, requiredBlocks } from './kv-cache'

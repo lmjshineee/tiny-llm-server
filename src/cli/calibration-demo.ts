@@ -9,7 +9,12 @@
  *
  * Run with `pnpm demo:calibration`.
  */
-import { DEFAULT_ENGINE_CONFIG, SIMULATED_LATENCY_NOTE, estimateStepLatency } from '../core/index'
+import {
+  DEFAULT_COST_PROFILE_ID,
+  SIMULATED_LATENCY_NOTE,
+  estimateStepLatency,
+  getCostProfile,
+} from '../core/index'
 import type { CostModel } from '../core/index'
 
 interface Profile {
@@ -36,12 +41,11 @@ interface DemoRequest {
   } | null
 }
 
+const synthetic = getCostProfile(DEFAULT_COST_PROFILE_ID)
+const measured = getCostProfile('measured-m5-q4-0.5b')
+
 const PROFILES: readonly Profile[] = [
-  {
-    name: 'synthetic-v1',
-    cost: DEFAULT_ENGINE_CONFIG.cost,
-    note: '项目默认值，7B 4-bit 量级',
-  },
+  { name: synthetic.id, cost: synthetic.cost, note: synthetic.label },
   {
     name: 'predicted-0.5b',
     cost: {
@@ -53,17 +57,7 @@ const PROFILES: readonly Profile[] = [
     },
     note: '实测前的预注册预测（H5/H6 失败）',
   },
-  {
-    name: 'measured-0.5b',
-    cost: {
-      stepOverheadMs: 1.83,
-      prefillBaseMs: 4.6,
-      prefillMsPerToken: 0.126,
-      decodeBaseMs: 2.67,
-      decodeMsPerRequest: 0.086,
-    },
-    note: '五点扫描线性拟合；缺少二次项',
-  },
+  { name: measured.id, cost: measured.cost, note: measured.label },
 ]
 
 const REQUESTS: readonly DemoRequest[] = [
@@ -115,13 +109,13 @@ function main(): void {
   for (const request of REQUESTS) {
     console.log(`== ${request.name}`)
     console.log(
-      `   ${'profile'.padEnd(16)} ${'TTFT ms'.padStart(8)} ${'TPOT ms'.padStart(8)} ${'E2E ms'.padStart(8)}`,
+      `   ${'profile'.padEnd(22)} ${'TTFT ms'.padStart(8)} ${'TPOT ms'.padStart(8)} ${'E2E ms'.padStart(8)}`,
     )
     for (const profile of PROFILES) {
       const ttft = estimateStepLatency(profile.cost, request.promptTokens, 0)
       const tpot = estimateStepLatency(profile.cost, 0, 1)
       console.log(
-        `   ${profile.name.padEnd(16)} ${ms(ttft)} ${ms(tpot)} ${ms(e2e(profile.cost, request.promptTokens, request.outputTokens))}`,
+        `   ${profile.name.padEnd(22)} ${ms(ttft)} ${ms(tpot)} ${ms(e2e(profile.cost, request.promptTokens, request.outputTokens))}`,
       )
     }
     if (request.real) {
@@ -129,7 +123,7 @@ function main(): void {
         ? ms(request.real.ttftMs + Math.max(request.outputTokens - 1, 0) * request.real.tpotMs)
         : '       -'
       console.log(
-        `   ${'real (client)'.padEnd(16)} ${ms(request.real.ttftMs)} ${ms(request.real.tpotMs)} ${realE2E}`,
+        `   ${'real (client)'.padEnd(22)} ${ms(request.real.ttftMs)} ${ms(request.real.tpotMs)} ${realE2E}`,
       )
     }
     console.log('')

@@ -105,5 +105,18 @@ jobs:
           console.log('benchmark smoke test passed (simulated)');
           "
 
+      - name: Measured cost-profile smoke test (simulated)
+        run: |
+          pnpm bench --smoke --profile measured-m5-q4-0.5b --json > bench-measured.json
+          node -e "
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('bench-measured.json', 'utf8'));
+          if (report.simulated !== true) throw new Error('measured-profile run must still be simulated');
+          if (report.costModelVersion !== 'measured-m5-q4-0.5b') throw new Error('report must name the requested profile');
+          if (!report.costModelNote.includes('Qwen2.5-0.5B')) throw new Error('report must carry the profile label');
+          console.log('measured cost-profile smoke test passed (simulated)');
+          "
+          pnpm validate:bench bench-measured.json
+
       - name: Validate benchmark JSON Schema
         run: pnpm validate:bench bench-smoke.json

@@ -23,6 +23,7 @@ prefix-results.json
 # benchmark artifacts
 bench-results.json
 bench-smoke.json
+bench-measured.json
 
 # local browser verification profiles
 .chrome-*/

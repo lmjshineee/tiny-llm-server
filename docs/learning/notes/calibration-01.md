@@ -128,7 +128,9 @@ Q4/Q8 吞吐比为 1.277，Q4/F16 为 1.953。原预测把 H1 写成了 `tg(Q8)/
 
 batch32 相差约 4.5 倍，说明这组单流拟合不能直接外推到高并发。
 这不是项目原有 synthetic-v1 的验证结果，也不证明 roofline 是唯一修正方案；后续应比较
-分段曲线、算力项和调度开销，并留出测点验证。当前没有实现或启用 measured profile。
+分段曲线、算力项和调度开销，并留出测点验证。这组数据后来变成了可选 profile
+`measured-m5-q4-0.5b`（[`src/core/cost-profiles.ts`](../../../src/core/cost-profiles.ts)），
+默认值仍是 `synthetic-v1`。
 
 ### 5.1 真实服务路径：天花板提前到 batch≈8
 
@@ -201,5 +203,5 @@ H6 的 800-token TTFT/TPOT 组合未按事前条件完成，保留为未验证�
 0.5B 的 KV 较小，但高并发长上下文仍可能产生容量压力：例如 32 个 32k 序列的 f16 KV 约 12 GiB。
 
 下一轮优先补齐：客户端流式 TTFT、固定配置的 batched 多次重复、模型校验和与运行日志、
-冷热状态的对照。之后再设计独立 measured profile，保留 synthetic-v1 默认值；
-这次提交仅包含报告、预测与数据，不改变模拟器执行逻辑。
+冷热状态的对照。该 profile 已实现为可选配置（`--profile measured-m5-q4-0.5b`），
+默认值仍为 `synthetic-v1`；报告、预测与原始数据保持原样，模拟器默认行为没有改变。

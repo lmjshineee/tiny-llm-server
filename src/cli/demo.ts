@@ -1,5 +1,6 @@
 import {
   ContinuousBatchingScheduler,
+  DEFAULT_COST_PROFILE_ID,
   DEFAULT_ENGINE_CONFIG,
   DEFAULT_WORKLOAD_CONFIG,
   FcfsScheduler,
@@ -7,6 +8,8 @@ import {
   createEngineConfig,
   createWorkloadConfig,
   generateWorkload,
+  getCostProfile,
+  listCostProfileIds,
   runSimulation,
 } from '../core/index'
 import type { SimulationResult } from '../core/index'
@@ -19,6 +22,7 @@ const STRATEGY_LABELS: Record<string, string> = {
 const COLUMN_WIDTHS = [24, 8, 10, 10, 10, 10, 10, 11, 15] as const
 
 interface CliOptions {
+  profileId: string
   requests: number
   rate: number
   seed: number
@@ -45,8 +49,17 @@ function parseNumber(value: string, flag: string): number {
   return parsed
 }
 
+function parseProfileId(value: string): string {
+  const ids = listCostProfileIds()
+  if (!ids.includes(value)) {
+    throw new CliError(`unknown profile "${value}"; expected one of ${ids.join(', ')}`)
+  }
+  return value
+}
+
 function parseArgs(argv: readonly string[]): CliOptions {
   const options: CliOptions = {
+    profileId: DEFAULT_COST_PROFILE_ID,
     requests: DEFAULT_WORKLOAD_CONFIG.numRequests,
     rate: DEFAULT_WORKLOAD_CONFIG.arrivalRatePerSecond,
     seed: DEFAULT_WORKLOAD_CONFIG.seed,
@@ -97,6 +110,9 @@ function parseArgs(argv: readonly string[]): CliOptions {
     }
 
     switch (flag) {
+      case '--profile':
+        options.profileId = parseProfileId(value)
+        break
       case '--requests':
         options.requests = parseNumber(value, flag)
         break
@@ -145,6 +161,8 @@ Usage:
   pnpm demo [options]
 
 Options:
+  --profile <id>       cost profile (default ${DEFAULT_COST_PROFILE_ID})
+                       ${listCostProfileIds().join(', ')}
   --requests <n>       number of requests (default ${DEFAULT_WORKLOAD_CONFIG.numRequests})
   --rate <n>           Poisson arrival rate in req/s (default ${DEFAULT_WORKLOAD_CONFIG.arrivalRatePerSecond})
   --seed <n>           workload seed (default ${DEFAULT_WORKLOAD_CONFIG.seed})
@@ -246,7 +264,8 @@ function printComparison(options: CliOptions, runs: readonly SimulationResult[])
   process.stdout.write('\n')
   process.stdout.write(`${SIMULATED_LATENCY_NOTE}\n`)
   process.stdout.write(
-    `The same ${options.requests}-request seeded workload and cost model were used for both runs.\n`,
+    `The same ${options.requests}-request seeded workload and cost profile ` +
+      `(\`${options.profileId}\`) were used for both runs.\n`,
   )
   process.stdout.write('These are not Apple Silicon, CUDA, or Ascend hardware measurements.\n')
 }
@@ -341,7 +360,9 @@ function main(): void {
     },
   })
 
+  const profile = getCostProfile(options.profileId)
   const engineConfig = createEngineConfig({
+    cost: profile.cost,
     maxBatchSize: options.maxBatch,
     maxNumBatchedTokens: options.maxBatchedTokens,
     kv: { totalBlocks: options.totalBlocks },
@@ -357,6 +378,7 @@ function main(): void {
     const payload = {
       simulated: true,
       note: SIMULATED_LATENCY_NOTE,
+      costProfile: profile.id,
       workload: workloadConfig,
       engineConfig,
       runs: runs.map((run) => ({

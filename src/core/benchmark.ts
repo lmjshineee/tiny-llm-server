@@ -1,4 +1,5 @@
 import { SIMULATED_LATENCY_NOTE, createEngineConfig } from './config'
+import { DEFAULT_COST_PROFILE_ID, getCostProfile } from './cost-profiles'
 import { ConfigError } from './errors'
 import { runSimulation } from './engine'
 import { ContinuousBatchingScheduler } from './schedulers/continuous-batching'
@@ -9,8 +10,12 @@ import type { WorkloadConfig } from './workload'
 
 /** Bump when the JSON shape changes. */
 export const BENCHMARK_SCHEMA_VERSION = '1.0' as const
-/** Bump when the synthetic cost-model defaults change. */
-export const COST_MODEL_VERSION = 'synthetic-v1' as const
+/**
+ * The cost profile used when none is requested. Reports carry the id of the
+ * profile they actually ran with, so `synthetic-v1` output and measured-profile
+ * output can never be confused for one another.
+ */
+export const COST_MODEL_VERSION = DEFAULT_COST_PROFILE_ID
 export const DEFAULT_BENCHMARK_SEED = 42
 
 export const SCHEDULER_KINDS = ['fcfs', 'continuous-batching'] as const
@@ -142,6 +147,8 @@ export function createBenchmarkScenarioInput(
 export interface BenchmarkOptions {
   readonly seed?: number
   readonly scenarios?: readonly string[]
+  /** Cost-profile id; defaults to {@link COST_MODEL_VERSION}. */
+  readonly profileId?: string
   /** A small deterministic matrix for CI and quick sanity checks. */
   readonly smoke?: boolean
   readonly batchSizes?: readonly number[]
@@ -176,7 +183,8 @@ export interface BenchmarkScenario {
 export interface BenchmarkReport {
   readonly schemaVersion: typeof BENCHMARK_SCHEMA_VERSION
   readonly simulated: true
-  readonly costModelVersion: typeof COST_MODEL_VERSION
+  /** Id of the cost profile these runs were priced with, e.g. `synthetic-v1`. */
+  readonly costModelVersion: string
   readonly costModelNote: string
   readonly seed: number
   readonly matrix: BenchmarkMatrix
@@ -243,6 +251,8 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
     throw new ConfigError('benchmark.seed must be finite')
   }
 
+  const profile = getCostProfile(options.profileId ?? DEFAULT_COST_PROFILE_ID)
+
   const scenarios = selectScenarios(options)
   const matrix: BenchmarkMatrix = {
     batchSizes: options.smoke
@@ -269,6 +279,7 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
           for (const kvBlocks of matrix.kvBlocks) {
             const engine = createEngineConfig({
               ...input.engineOverrides,
+              cost: profile.cost,
               maxBatchSize: batchSize,
               prefillChunkSize,
               kv: {
@@ -311,8 +322,8 @@ export function runBenchmark(options: BenchmarkOptions = {}): BenchmarkReport {
   return {
     schemaVersion: BENCHMARK_SCHEMA_VERSION,
     simulated: true,
-    costModelVersion: COST_MODEL_VERSION,
-    costModelNote: SIMULATED_LATENCY_NOTE,
+    costModelVersion: profile.id,
+    costModelNote: `${SIMULATED_LATENCY_NOTE} Cost profile: ${profile.label}.`,
     seed,
     matrix,
     runCount: scenarioReports.reduce((total, scenario) => total + scenario.runs.length, 0),

@@ -335,21 +335,39 @@ hits do reduce the prefill token count, but the model does not include cache-loo
 memory-bandwidth contention, attention quadratic effects, network latency, or hardware
 variance. Replace the model with measured traces before drawing performance conclusions.
 
-### Replacing the synthetic profile
+### Cost profiles
 
-The cost coefficients are explicit config fields, not hidden constants. A measured profile should:
+Cost models live in `src/core/cost-profiles.ts` as named profiles. `runBenchmark` accepts a
+`profileId`, injects that profile's coefficients into every engine config, and stamps the id into
+`costModelVersion`. The same `CostModel` interface is reused, so nothing downstream needs to know
+which profile produced a report — but the report always says which one it was.
 
-1. Keep the same `CostModelConfig` interface and add provenance: machine, model, quantization,
-   runtime/version, warm-up, repetitions, input/output lengths, and variance.
-2. Be opt-in (for example, a separate profile id) rather than silently changing the default
-   `synthetic-v1` numbers.
-3. Keep prefill and decode measurements separate; do not fit a single end-to-end number.
-4. Be reported with the benchmark, including the fact that it is a single-machine profile rather
-   than a production benchmark.
-5. Bump `costModelVersion` (and the JSON schema if the report shape changes).
+| Id | Origin | Default |
+| --- | --- | --- |
+| `synthetic-v1` | Illustrative 7B-class 4-bit parameters | ✅ |
+| `measured-m5-q4-0.5b` | Five-point linear fit to Qwen2.5-0.5B Q4_K_M on an Apple M5, llama.cpp 0.9.0 + Metal, single stream, ~1k context | opt-in |
 
-The current learning plan's calibration exercise is a starting point, not a claim that this
-profile already exists.
+Each profile carries two fields that exist purely for honesty: `provenance` (device, model,
+runtime, date, source report) and `limitations` (what the profile cannot express). The measured
+profile's documented gaps are load-bearing:
+
+- no context-length term, so decode looks flat as KV grows (measured: −26% at 8k);
+- linear prefill, so long prompts are under-priced (measured: −47% at 8k tokens);
+- no batching ceiling, so aggregate throughput is over-predicted past batch ≈ 8 (measured: 4.5×
+  at batch 32).
+
+Guarantees kept by tests:
+
+- the default profile's coefficients deep-equal `DEFAULT_ENGINE_CONFIG.cost`, so existing reports
+  cannot drift silently;
+- every profile passes `createEngineConfig` validation;
+- the JSON-schema `costModelVersion` enum equals the profile registry, so adding a profile without
+  updating the schema fails CI;
+- the measured profile reproduces the two calibration points it was fitted on within 10%.
+
+Adding a new profile means: append to `COST_PROFILES` with provenance and limitations, extend the
+schema enum, and add a test that pins it to its source data. Do not mutate `synthetic-v1`; bump the
+id instead.
 
 ## 8. Metrics
 
@@ -396,8 +414,8 @@ baseline cells and a best-throughput cell when it improves on the baseline.
 
 The report includes:
 
-- `schemaVersion: "1.0"` and `costModelVersion: "synthetic-v1"` so consumers can detect shape
-  or cost-model drift.
+- `schemaVersion: "1.0"` and `costModelVersion` (a cost-profile id: `synthetic-v1` by default,
+  `measured-m5-q4-0.5b` when requested) so consumers can detect shape or cost-model drift.
 - The seed, normalized matrix axes, every workload config, and every engine config.
 - Per-run summaries: throughput, TTFT/TPOT/E2E P50/P95/P99, prefix hit metrics, KV peaks.
 - No wall-clock timestamp, so identical options produce byte-identical JSON.

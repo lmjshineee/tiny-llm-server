@@ -113,6 +113,14 @@ export interface CostModel {
   /** Incremental decode cost of each additional sequence in the batch. */
   readonly decodeMsPerRequest: number
   /**
+   * Cost of one KV token read during a decode step, aggregated over the batch.
+   * A request at 8k context adds `8192 × this` to the memory term of every
+   * decode step. Fitted from a depth sweep; lumps KV bandwidth and attention
+   * compute into one coefficient, and is linear even though the measured curve
+   * drifts slightly superlinear past 16k. Omit for the context-free model.
+   */
+  readonly decodeMsPerContextToken?: number
+  /**
    * FLOPs one sequence spends on a decode step (roughly `2 × params`). Set
    * together with {@link decodeFlopsPerSecond} to enable the roofline cap:
    * the step then costs `max(memory, compute)` instead of memory alone, which

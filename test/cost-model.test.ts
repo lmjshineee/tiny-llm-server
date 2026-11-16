@@ -73,6 +73,39 @@ describe('decode roofline cap', () => {
     expect(aggregateTokensPerSecond(UNCAPPED, 64)).toBeGreaterThan(cappedAtSmall * 3)
   })
 
+  it('charges context inside the memory term', () => {
+    const cost: CostModel = { ...UNCAPPED, decodeMsPerContextToken: 0.001 }
+    // 10 sequences at 1000 KV tokens each: +10 ms of memory-side cost.
+    expect(estimateStepLatency(cost, 0, 10, 10_000)).toBeCloseTo(
+      estimateStepLatency(cost, 0, 10) + 10,
+      10,
+    )
+
+    // When the roofline cap makes the step compute-bound, context is not charged
+    // twice: memory 1 + 6.4 + 0.1 ms stays below compute 32 ms.
+    const capped: CostModel = { ...CAPPED, decodeMsPerContextToken: 1e-7 }
+    const computeBound = estimateStepLatency(capped, 0, 64, 1_000_000)
+    expect(computeBound).toBeCloseTo(1 + 64 * 0.5, 6)
+
+    // Default profiles have no context term, so this is a no-op for them.
+    expect(estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4, 100_000)).toBeCloseTo(
+      estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4),
+      10,
+    )
+  })
+
+  it('rejects invalid context arguments and coefficients', () => {
+    const cost: CostModel = { ...UNCAPPED, decodeMsPerContextToken: 0.001 }
+    expect(() => estimateStepLatency(cost, 0, 1, -1)).toThrow(RangeError)
+    expect(() => estimateStepLatency(cost, 0, 1, 1.5)).toThrow(RangeError)
+    expect(() =>
+      createEngineConfig({ cost: { ...DEFAULT_ENGINE_CONFIG.cost, decodeMsPerContextToken: -1 } }),
+    ).toThrow(ConfigError)
+    expect(
+      'decodeMsPerContextToken' in createEngineConfig({ cost: DEFAULT_ENGINE_CONFIG.cost }).cost,
+    ).toBe(false)
+  })
+
   it('rejects a half-configured roofline pair', () => {
     expect(() =>
       createEngineConfig({

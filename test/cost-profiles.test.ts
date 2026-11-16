@@ -4,11 +4,13 @@ import {
   ConfigError,
   DEFAULT_COST_PROFILE_ID,
   DEFAULT_ENGINE_CONFIG,
+  FcfsScheduler,
   createEngineConfig,
   estimateStepLatency,
   getCostProfile,
   isCostProfileId,
   listCostProfileIds,
+  runSimulation,
 } from '../src/core/index'
 
 const MEASURED_PROFILE_ID = 'measured-m5-q4-0.5b'
@@ -74,6 +76,42 @@ describe('cost profiles', () => {
       const predicted = (point.batch / estimateStepLatency(cost, 0, point.batch)) * 1000
       expectRelative(predicted, point.tokPerSecond, 0.15)
     }
+  })
+
+  it('reproduces the measured context-length decay within 15%', () => {
+    const cost = getCostProfile(MEASURED_PROFILE_ID).cost
+    // calibration-01.md: tg128 at depth 0/8192/16384/30720, in ms per token.
+    const measured = [
+      { context: 0, msPerToken: 4.421 },
+      { context: 8_192, msPerToken: 6.001 },
+      { context: 16_384, msPerToken: 8.547 },
+      { context: 30_720, msPerToken: 11.858 },
+    ]
+
+    for (const point of measured) {
+      const predicted = estimateStepLatency(cost, 0, 1, point.context)
+      expectRelative(predicted, point.msPerToken, 0.15)
+    }
+  })
+
+  it('makes long prompts slower to decode inside the engine', () => {
+    const cost = getCostProfile(MEASURED_PROFILE_ID).cost
+    const config = createEngineConfig({
+      cost,
+      maxBatchSize: 1,
+      kv: { blockSize: 16, totalBlocks: 512 },
+    })
+
+    const run = (promptTokens: number) =>
+      runSimulation({
+        requests: [{ id: 'r', arrivalTime: 0, promptTokens, maxNewTokens: 16 }],
+        scheduler: new FcfsScheduler(),
+        config,
+      })
+
+    const shortTpot = run(8).summary.tpotMs.p50 ?? 0
+    const longTpot = run(4_000).summary.tpotMs.p50 ?? 0
+    expect(longTpot).toBeGreaterThan(shortTpot * 1.15)
   })
 
   it('records provenance and the known gaps for the measured profile', () => {

@@ -67,6 +67,10 @@ export function validateEngineConfig(config: EngineConfig): void {
   assertNonNegativeFinite(cost.decodeBaseMs, 'config.cost.decodeBaseMs')
   assertPositiveFinite(cost.decodeMsPerRequest, 'config.cost.decodeMsPerRequest')
 
+  if (cost.decodeMsPerContextToken !== undefined) {
+    assertNonNegativeFinite(cost.decodeMsPerContextToken, 'config.cost.decodeMsPerContextToken')
+  }
+
   const { decodeFlopsPerRequest, decodeFlopsPerSecond } = cost
   if (decodeFlopsPerRequest !== undefined || decodeFlopsPerSecond !== undefined) {
     if (decodeFlopsPerRequest === undefined || decodeFlopsPerSecond === undefined) {
@@ -92,6 +96,14 @@ function rooflineOverrides(
     ...(decodeFlopsPerRequest !== undefined ? { decodeFlopsPerRequest } : {}),
     ...(decodeFlopsPerSecond !== undefined ? { decodeFlopsPerSecond } : {}),
   }
+}
+
+/** Copy an optional number only when it is configured. */
+function optionalNumber<Key extends 'decodeMsPerContextToken'>(
+  key: Key,
+  value: number | undefined,
+): Pick<CostModel, Key> | Record<string, never> {
+  return value === undefined ? {} : ({ [key]: value } as Pick<CostModel, Key>)
 }
 
 function deepFreeze<T>(value: T): T {
@@ -124,6 +136,10 @@ export function createEngineConfig(overrides: DeepPartial<EngineConfig> = {}): E
       ...rooflineOverrides(
         overrides.cost?.decodeFlopsPerRequest ?? base.cost.decodeFlopsPerRequest,
         overrides.cost?.decodeFlopsPerSecond ?? base.cost.decodeFlopsPerSecond,
+      ),
+      ...optionalNumber(
+        'decodeMsPerContextToken',
+        overrides.cost?.decodeMsPerContextToken ?? base.cost.decodeMsPerContextToken,
       ),
     },
     maxSteps: overrides.maxSteps ?? base.maxSteps,

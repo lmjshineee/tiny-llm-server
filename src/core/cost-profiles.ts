@@ -60,6 +60,9 @@ export const COST_PROFILES: readonly CostProfile[] = [
       prefillMsPerToken: 0.126,
       decodeBaseMs: 2.67,
       decodeMsPerRequest: 0.086,
+      // 0–30k depth sweep: 0.246 ms per 1k KV tokens, fitted through the
+      // single-stream baseline at ctx ≈ 0.
+      decodeMsPerContextToken: 0.00023,
       // 2 FLOPs per parameter per token for the 0.5B layer stack; the measured
       // saturating throughput implies ~1 TFLOPS of decode-shaped compute.
       decodeFlopsPerRequest: 716_000_000,
@@ -73,7 +76,7 @@ export const COST_PROFILES: readonly CostProfile[] = [
       source: 'docs/learning/notes/calibration-01.md',
     },
     limitations: [
-      'Fitted at ~1k context. Decode cost grows with context; this model has no context term.',
+      'Context cost is linear (0.00023 ms per KV token) and fits the 0–30k depth sweep within 10%, but the measured curve drifts slightly superlinear past 16k.',
       'Prefill is linear here, but the 8192-token point shows a quadratic attention term (~47% low if extrapolated).',
       'The roofline cap saturates batching at ~1.3k tok/s (measured batch 8/16/32 within 10%), but the measured decline past batch 16 is not modelled.',
       'Single machine, single model, single quantization, short runs; not a hardware ranking.',

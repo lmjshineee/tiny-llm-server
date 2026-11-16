@@ -261,8 +261,10 @@ Commits:
 - [x] Roofline term: `max(memory, compute)` decode ceiling (`decodeFlopsPerRequest` +
       `decodeFlopsPerSecond`), enabled by the measured profile; reproduces the measured batch
       8/16/32 throughput within 10%. Left off by default so `synthetic-v1` reports are unchanged.
-- [ ] Context term: decode cost grows with KV length (measured −26% at 8k tokens); the cost model
-      currently has no coefficient for it, which is exactly where prefix caching pays off.
+- [x] Context term: `decodeMsPerContextToken` (0.00023 ms per KV token), fitted to the 0–30k depth
+      sweep and passed by the engine as the batch's summed KV length; reproduces the measured
+      curve within 8%. This is the mechanism prefix caching pays back against.
+- [ ] Quadratic prefill term: long prompts are still under-priced (measured −47% at 8k tokens).
 - [ ] Comparative report: conservative reservation vs prefix-aware admission, with and without
       preemption.
 - [ ] Refresh UI/e2e screenshots and update the cost-model limitations.

@@ -324,6 +324,7 @@ latency =
 | `prefillMsPerToken` | 0.35 | Prefill is modelled as compute-bound and linear. |
 | `decodeBaseMs` | 18.0 | Weight read per decode step, roughly constant in batch size. |
 | `decodeMsPerRequest` | 1.2 | Per-sequence KV read/compute; sublinear batching benefit. |
+| `decodeMsPerContextToken` | *(unset)* | Optional: cost of one KV token read per step; makes decode grow with context. |
 | `decodeFlopsPerRequest` | *(unset)* | Optional: FLOPs per sequence per decode step (`≈2 × params`). |
 | `decodeFlopsPerSecond` | *(unset)* | Optional: effective decode-shaped throughput; together with the field above it forms the roofline cap. |
 
@@ -335,8 +336,12 @@ A decode step may also carry a roofline cap. When a profile sets both `decodeFlo
 and `decodeFlopsPerSecond`, the decode term becomes
 
 ```text
-max(decodeBaseMs + n × decodeMsPerRequest,   n × decodeFlopsPerRequest / decodeFlopsPerSecond)
+max( decodeBaseMs + n × decodeMsPerRequest + ctxTokens × decodeMsPerContextToken ,
+     n × decodeFlopsPerRequest / decodeFlopsPerSecond )
 ```
+
+`ctxTokens` is the summed KV length of the sequences decoding in this step, passed by the engine;
+the context term sits on the memory side, so a compute-bound batch is not charged twice.
 
 so throughput saturates instead of growing with batch size. The cap is opt-in and unset in
 `measured`-free runs: with both fields absent the model is exactly the additive one above, which
@@ -364,7 +369,7 @@ Each profile carries two fields that exist purely for honesty: `provenance` (dev
 runtime, date, source report) and `limitations` (what the profile cannot express). The measured
 profile's documented gaps are load-bearing:
 
-- no context-length term, so decode looks flat as KV grows (measured: −26% at 8k);
+- the context term is linear, while the measured curve drifts slightly superlinear past 16k;
 - linear prefill, so long prompts are under-priced (measured: −47% at 8k tokens);
 - batching saturates at the roofline cap (~1.3k tok/s, matching the measured batch 8/16/32 within
   10%), but the measured *decline* past batch 16 is not modelled — a pure cap can only flatten.

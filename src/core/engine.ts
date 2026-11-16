@@ -318,7 +318,25 @@ class Simulator {
       )
     }
 
-    const latencyMs = estimateStepLatency(this.#config.cost, prefillTokens, decodeTokens)
+    // Context a decoding request already holds, summed over the batch. Requests
+    // are mutated only after the step, so this reads the pre-step state.
+    const prefillTokensById = new Map(prefilled.map((intent) => [intent.requestId, intent.tokens]))
+    let decodeContextTokens = 0
+    for (const requestId of plan.decode) {
+      const request = this.#byId.get(requestId)
+      if (request === undefined) {
+        throw new PlanValidationError(`cannot decode unknown request "${requestId}"`)
+      }
+      decodeContextTokens +=
+        request.prefilledTokens + request.outputTokens + (prefillTokensById.get(requestId) ?? 0)
+    }
+
+    const latencyMs = estimateStepLatency(
+      this.#config.cost,
+      prefillTokens,
+      decodeTokens,
+      decodeContextTokens,
+    )
     const endMs = startMs + latencyMs
 
     if (endMs > this.#config.maxSimTimeMs) {

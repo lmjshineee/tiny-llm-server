@@ -79,6 +79,7 @@ export const COST_PROFILES: readonly CostProfile[] = [
       'Context cost is linear (0.00023 ms per KV token) and fits the 0–30k depth sweep within 10%, but the measured curve drifts slightly superlinear past 16k.',
       'Prefill is linear here, but the 8192-token point shows a quadratic attention term (~47% low if extrapolated).',
       'The roofline cap saturates batching at ~1.3k tok/s (measured batch 8/16/32 within 10%), but the measured decline past batch 16 is not modelled.',
+      'Context is charged on the memory side of the roofline, so it becomes free once a batch is compute-bound. That is consistent with the batch data but was not measured at 16k context with batch 16.',
       'Single machine, single model, single quantization, short runs; not a hardware ranking.',
     ],
   },

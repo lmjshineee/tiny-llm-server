@@ -27,7 +27,7 @@ export type {
   BenchmarkScenarioInput,
   SchedulerKind,
 } from './benchmark'
-export { estimateStepLatency } from './cost-model'
+export { estimateDecodeComputeMs, estimateStepLatency } from './cost-model'
 export {
   COST_PROFILES,
   DEFAULT_COST_PROFILE_ID,

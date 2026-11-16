@@ -324,10 +324,23 @@ latency =
 | `prefillMsPerToken` | 0.35 | Prefill is modelled as compute-bound and linear. |
 | `decodeBaseMs` | 18.0 | Weight read per decode step, roughly constant in batch size. |
 | `decodeMsPerRequest` | 1.2 | Per-sequence KV read/compute; sublinear batching benefit. |
+| `decodeFlopsPerRequest` | *(unset)* | Optional: FLOPs per sequence per decode step (`≈2 × params`). |
+| `decodeFlopsPerSecond` | *(unset)* | Optional: effective decode-shaped throughput; together with the field above it forms the roofline cap. |
 
 Example: a 16-request decode step costs `0.2 + 18 + 16 × 1.2 = 37.4 ms` for 16 tokens,
 while 16 single-request steps cost `16 × 19.4 = 310.4 ms`. This sublinear decode assumption is
 the main reason continuous batching wins in the simulation.
+
+A decode step may also carry a roofline cap. When a profile sets both `decodeFlopsPerRequest`
+and `decodeFlopsPerSecond`, the decode term becomes
+
+```text
+max(decodeBaseMs + n × decodeMsPerRequest,   n × decodeFlopsPerRequest / decodeFlopsPerSecond)
+```
+
+so throughput saturates instead of growing with batch size. The cap is opt-in and unset in
+`measured`-free runs: with both fields absent the model is exactly the additive one above, which
+keeps every `synthetic-v1` report byte-identical.
 
 **These values are illustrative, not measurements.** They are chosen to be in a plausible
 order of magnitude for a 7B-class 4-bit model and to make scheduling effects visible. Prefix
@@ -353,8 +366,8 @@ profile's documented gaps are load-bearing:
 
 - no context-length term, so decode looks flat as KV grows (measured: −26% at 8k);
 - linear prefill, so long prompts are under-priced (measured: −47% at 8k tokens);
-- no batching ceiling, so aggregate throughput is over-predicted past batch ≈ 8 (measured: 4.5×
-  at batch 32).
+- batching saturates at the roofline cap (~1.3k tok/s, matching the measured batch 8/16/32 within
+  10%), but the measured *decline* past batch 16 is not modelled — a pure cap can only flatten.
 
 Guarantees kept by tests:
 

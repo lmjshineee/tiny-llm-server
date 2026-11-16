@@ -13,6 +13,12 @@ const MIN_STEP_MS = 1e-3
  *
  * When prefill and decode share a step, both fixed/base costs are paid. This
  * intentionally over-approximates mixed steps rather than flattering batching.
+ *
+ * A decode step may additionally carry a roofline cap. When a profile supplies
+ * both `decodeFlopsPerRequest` and `decodeFlopsPerSecond`, the step costs
+ * `max(memoryMs, computeMs)`; past the knee, extra sequences no longer buy
+ * throughput. Without those fields the model is purely additive, so every
+ * report produced by `synthetic-v1` is byte-identical to before the cap existed.
  */
 export function estimateStepLatency(
   cost: CostModel,
@@ -37,8 +43,20 @@ export function estimateStepLatency(
     latencyMs += cost.prefillBaseMs + prefillTokens * cost.prefillMsPerToken
   }
   if (decodeRequests > 0) {
-    latencyMs += cost.decodeBaseMs + decodeRequests * cost.decodeMsPerRequest
+    const memoryMs = cost.decodeBaseMs + decodeRequests * cost.decodeMsPerRequest
+    const computeMs = estimateDecodeComputeMs(cost, decodeRequests)
+    latencyMs += Math.max(memoryMs, computeMs)
   }
 
   return Math.max(latencyMs, MIN_STEP_MS)
+}
+
+/**
+ * Decode-step compute time, or `0` when the profile does not configure a
+ * roofline cap. Exported so tests and reports can show which bound is binding.
+ */
+export function estimateDecodeComputeMs(cost: CostModel, decodeRequests: number): number {
+  const { decodeFlopsPerRequest, decodeFlopsPerSecond } = cost
+  if (decodeFlopsPerRequest === undefined || decodeFlopsPerSecond === undefined) return 0
+  return (decodeRequests * decodeFlopsPerRequest * 1000) / decodeFlopsPerSecond
 }

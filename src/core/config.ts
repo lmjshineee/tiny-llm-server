@@ -1,5 +1,5 @@
 import { ConfigError } from './errors'
-import type { DeepPartial, EngineConfig } from './types'
+import type { CostModel, DeepPartial, EngineConfig } from './types'
 
 /**
  * Defaults chosen to be roughly plausible for a 7B-class model in 4-bit on an
@@ -66,6 +66,32 @@ export function validateEngineConfig(config: EngineConfig): void {
   assertPositiveFinite(cost.prefillMsPerToken, 'config.cost.prefillMsPerToken')
   assertNonNegativeFinite(cost.decodeBaseMs, 'config.cost.decodeBaseMs')
   assertPositiveFinite(cost.decodeMsPerRequest, 'config.cost.decodeMsPerRequest')
+
+  const { decodeFlopsPerRequest, decodeFlopsPerSecond } = cost
+  if (decodeFlopsPerRequest !== undefined || decodeFlopsPerSecond !== undefined) {
+    if (decodeFlopsPerRequest === undefined || decodeFlopsPerSecond === undefined) {
+      throw new ConfigError(
+        'config.cost.decodeFlopsPerRequest and config.cost.decodeFlopsPerSecond ' +
+          'must be configured together (or both omitted)',
+      )
+    }
+    assertPositiveFinite(decodeFlopsPerRequest, 'config.cost.decodeFlopsPerRequest')
+    assertPositiveFinite(decodeFlopsPerSecond, 'config.cost.decodeFlopsPerSecond')
+  }
+}
+
+/**
+ * Copy the optional roofline pair only when it is configured, so a profile
+ * without the cap serializes exactly as it did before the cap existed.
+ */
+function rooflineOverrides(
+  decodeFlopsPerRequest: number | undefined,
+  decodeFlopsPerSecond: number | undefined,
+): Pick<CostModel, 'decodeFlopsPerRequest' | 'decodeFlopsPerSecond'> {
+  return {
+    ...(decodeFlopsPerRequest !== undefined ? { decodeFlopsPerRequest } : {}),
+    ...(decodeFlopsPerSecond !== undefined ? { decodeFlopsPerSecond } : {}),
+  }
 }
 
 function deepFreeze<T>(value: T): T {
@@ -95,6 +121,10 @@ export function createEngineConfig(overrides: DeepPartial<EngineConfig> = {}): E
       prefillMsPerToken: overrides.cost?.prefillMsPerToken ?? base.cost.prefillMsPerToken,
       decodeBaseMs: overrides.cost?.decodeBaseMs ?? base.cost.decodeBaseMs,
       decodeMsPerRequest: overrides.cost?.decodeMsPerRequest ?? base.cost.decodeMsPerRequest,
+      ...rooflineOverrides(
+        overrides.cost?.decodeFlopsPerRequest ?? base.cost.decodeFlopsPerRequest,
+        overrides.cost?.decodeFlopsPerSecond ?? base.cost.decodeFlopsPerSecond,
+      ),
     },
     maxSteps: overrides.maxSteps ?? base.maxSteps,
     maxSimTimeMs: overrides.maxSimTimeMs ?? base.maxSimTimeMs,

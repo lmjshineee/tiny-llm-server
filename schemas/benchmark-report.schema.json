@@ -153,7 +153,9 @@
             "prefillBaseMs": { "$ref": "#/definitions/nonNegativeNumber" },
             "prefillMsPerToken": { "$ref": "#/definitions/nonNegativeNumber" },
             "decodeBaseMs": { "$ref": "#/definitions/nonNegativeNumber" },
-            "decodeMsPerRequest": { "$ref": "#/definitions/nonNegativeNumber" }
+            "decodeMsPerRequest": { "$ref": "#/definitions/nonNegativeNumber" },
+            "decodeFlopsPerRequest": { "type": "number", "exclusiveMinimum": 0 },
+            "decodeFlopsPerSecond": { "type": "number", "exclusiveMinimum": 0 }
           }
         },
         "maxSteps": { "$ref": "#/definitions/positiveInteger" },

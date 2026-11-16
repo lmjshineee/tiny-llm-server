@@ -156,7 +156,9 @@ batch32 相差约 4.5 倍，说明这组单流拟合不能直接外推到高并�
    交错到达的服务给出可达值，两者差 1.4–1.8 倍。
 
 这意味着 measured profile 至少要能表达两件事：并发下的算力上限，以及 prefill 与 decode 的相互占用。
-当前线性成本模型两件都做不到；后续做 M6 时应先用这两组数据验证，再改代码。
+第一件已经实现——代价模型加了可选的 roofline 上限（`decodeFlopsPerRequest` / `decodeFlopsPerSecond`），
+用本节的 batch 8/16/32 三个点验证，误差在 10% 以内；默认 `synthetic-v1` 不带该上限，历史报告不变。
+第二件（prefill 与 decode 互相占用）仍未建模，是下一步。
 
 ## 6. 服务端 prompt 计时与前缀复用
 

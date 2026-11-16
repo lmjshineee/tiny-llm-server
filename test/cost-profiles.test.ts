@@ -61,6 +61,21 @@ describe('cost profiles', () => {
     expectRelative(estimateStepLatency(cost, 0, 1), 4.37, 0.1)
   })
 
+  it('reproduces the measured batching ceiling within 15%', () => {
+    const cost = getCostProfile(MEASURED_PROFILE_ID).cost
+    // calibration-01.md §5: phase-separated aggregate decode throughput.
+    const measured = [
+      { batch: 8, tokPerSecond: 1100 },
+      { batch: 16, tokPerSecond: 1308 },
+      { batch: 32, tokPerSecond: 1214 },
+    ]
+
+    for (const point of measured) {
+      const predicted = (point.batch / estimateStepLatency(cost, 0, point.batch)) * 1000
+      expectRelative(predicted, point.tokPerSecond, 0.15)
+    }
+  })
+
   it('records provenance and the known gaps for the measured profile', () => {
     const measured = getCostProfile(MEASURED_PROFILE_ID)
     expect(measured.provenance).not.toBeNull()

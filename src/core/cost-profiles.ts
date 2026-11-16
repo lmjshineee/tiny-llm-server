@@ -60,6 +60,10 @@ export const COST_PROFILES: readonly CostProfile[] = [
       prefillMsPerToken: 0.126,
       decodeBaseMs: 2.67,
       decodeMsPerRequest: 0.086,
+      // 2 FLOPs per parameter per token for the 0.5B layer stack; the measured
+      // saturating throughput implies ~1 TFLOPS of decode-shaped compute.
+      decodeFlopsPerRequest: 716_000_000,
+      decodeFlopsPerSecond: 1_000_000_000_000,
     },
     provenance: {
       device: 'Apple M5, MacBook Air Mac17,3, 8-core GPU, 16 GiB',
@@ -71,7 +75,7 @@ export const COST_PROFILES: readonly CostProfile[] = [
     limitations: [
       'Fitted at ~1k context. Decode cost grows with context; this model has no context term.',
       'Prefill is linear here, but the 8192-token point shows a quadratic attention term (~47% low if extrapolated).',
-      'No batching ceiling: beyond batch ~8 the linear decode model over-predicts aggregate throughput several-fold.',
+      'The roofline cap saturates batching at ~1.3k tok/s (measured batch 8/16/32 within 10%), but the measured decline past batch 16 is not modelled.',
       'Single machine, single model, single quantization, short runs; not a hardware ranking.',
     ],
   },

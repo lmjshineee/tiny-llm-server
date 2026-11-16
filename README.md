@@ -229,8 +229,9 @@ Two cost models exist and a report always names the one it used (`costModelVersi
 | `synthetic-v1` | Illustrative 7B-class 4-bit parameters; not measured | ✅ |
 | `measured-m5-q4-0.5b` | Five-point fit to Qwen2.5-0.5B Q4_K_M on an Apple M5 (llama.cpp + Metal), single stream, ~1k context | opt-in |
 
-The measured profile is deliberately narrow. It has no context-length term, no quadratic prefill
-term, and no batching ceiling, so it is accurate on short single-stream requests and increasingly
+The measured profile is deliberately narrow. It has no context-length term and no quadratic
+prefill term, and its batching ceiling is a flat roofline cap (the measured curve dips past batch
+16, which a cap cannot express). It is accurate on short single-stream requests and increasingly
 optimistic elsewhere. Those gaps are listed in the profile itself
 ([`src/core/cost-profiles.ts`](src/core/cost-profiles.ts)) and were measured, not guessed:
 see [calibration-01.md](docs/learning/notes/calibration-01.md). Reports from different profiles
@@ -378,8 +379,8 @@ It is a plan, not a claim that M6 or measured calibration is implemented.
 - [Notes and experiment templates](docs/learning/NOTES_TEMPLATE.md)
 
 The track is written in Chinese; code, commands, and the rest of the repository remain in
-English. M6 is partially done: an opt-in measured cost profile and its calibration report exist,
-while prefix-aware admission, preemption, and a roofline/batching term are still open. All lab
+English. M6 is partially done: an opt-in measured cost profile, its calibration report, and a
+roofline decode cap exist, while prefix-aware admission and preemption are still open. All lab
 results are simulated unless explicitly marked as measured.
 
 ## Roadmap

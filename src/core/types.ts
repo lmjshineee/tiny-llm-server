@@ -112,6 +112,19 @@ export interface CostModel {
   readonly decodeBaseMs: number
   /** Incremental decode cost of each additional sequence in the batch. */
   readonly decodeMsPerRequest: number
+  /**
+   * FLOPs one sequence spends on a decode step (roughly `2 × params`). Set
+   * together with {@link decodeFlopsPerSecond} to enable the roofline cap:
+   * the step then costs `max(memory, compute)` instead of memory alone, which
+   * is what makes batch throughput saturate. Omit both to keep the purely
+   * additive synthetic model.
+   */
+  readonly decodeFlopsPerRequest?: number
+  /**
+   * Effective decode-shaped throughput, in FLOPs per second. Measured much
+   * lower than prefill throughput because a decode GEMM has a tiny `M`.
+   */
+  readonly decodeFlopsPerSecond?: number
 }
 
 export interface EngineConfig {

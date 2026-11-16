@@ -258,8 +258,9 @@ Commits:
 - [x] Optional small-model calibration profile on Apple Silicon (separate from `synthetic-v1`):
       `measured-m5-q4-0.5b`, opt-in via `--profile`, with provenance and documented limitations in
       `src/core/cost-profiles.ts`; measurements in `docs/learning/notes/calibration-01.md`.
-- [ ] Roofline term: add a `max(memory, compute)` ceiling to the step cost, so batch experiments
-      stop over-predicting aggregate throughput (measured error: 4.5× at batch 32).
+- [x] Roofline term: `max(memory, compute)` decode ceiling (`decodeFlopsPerRequest` +
+      `decodeFlopsPerSecond`), enabled by the measured profile; reproduces the measured batch
+      8/16/32 throughput within 10%. Left off by default so `synthetic-v1` reports are unchanged.
 - [ ] Context term: decode cost grows with KV length (measured −26% at 8k tokens); the cost model
       currently has no coefficient for it, which is exactly where prefix caching pays off.
 - [ ] Comparative report: conservative reservation vs prefix-aware admission, with and without

@@ -1,0 +1,32 @@
+{
+  "source": "simulator",
+  "costProfile": "measured-m5-q4-0.5b",
+  "engine": {
+    "maxBatchSize": 8,
+    "prefillChunkSize": 512,
+    "maxNumBatchedTokens": 4096,
+    "kvBlocks": 2048
+  },
+  "runs": [
+    {
+      "strategy": "fcfs",
+      "makespan_ms": 9139.032560000001,
+      "ttft_p50": 4427.503244999998,
+      "ttft_p95": 8328.960037499999,
+      "tpot_p50": 4.713650000000003,
+      "e2e_p95": 8625.070149,
+      "output_tok_per_s": 168.07030612001668,
+      "avg_decode_batch": 1
+    },
+    {
+      "strategy": "continuous-batching",
+      "makespan_ms": 3295.7104799999993,
+      "ttft_p50": 1571.2878999999996,
+      "ttft_p95": 2736.6973599999997,
+      "tpot_p50": 11.228967460317458,
+      "e2e_p95": 3286.0345499999994,
+      "output_tok_per_s": 466.0603561269133,
+      "avg_decode_batch": 7.675126903553299
+    }
+  ]
+}

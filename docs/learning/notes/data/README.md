@@ -15,6 +15,9 @@ llama.cpp 0.9.0 build 12110（Metal）。模型：Qwen2.5-0.5B-Instruct GGUF。
 | `tg-q4-cpu.json` / `pp-q4-cpu.json` | CPU 对照（`-ngl 0`） | 同上，去掉 `-ngl 99` 加 `-ngl 0` |
 | `batched-q4.txt` | 批次 1/2/4/8/16，`-c 32768`，**先测、偏慢的一轮** | `llama-batched-bench ... -c 32768 -npp 512 -ntg 128 -npl 1,2,4,8,16` |
 | `batched-q4-32.txt` | 批次 1/8/16/32，`-c 65536`，**报告采用的一轮** | 同上，`-c 65536 -npl 1,8,16,32` |
+| `burst-real.json` | 同上的**首次**运行（冷启动，4.27 s，明显偏慢，仅作对照） | 同上 |
+| `burst-real-1/2/3.json` | 24 请求突发的真实客户端计时（预热后 3 次） | [`tools/drive-burst.py`](../tools/drive-burst.py) |
+| `burst-sim.json` | 同一负载在模拟器里的 FCFS / 连续批处理结果 | [`tools/run-burst-sim.ts`](../tools/run-burst-sim.ts) |
 | `server-concurrency.json` | 16 并发下的 TTFT/TPOT/聚合吞吐（客户端 + 服务端两路） | [`tools/measure-concurrency.py`](../tools/measure-concurrency.py) |
 | `server-timings.json` | 手动保存的服务内部 prompt 计时摘要、prefix cache；不是客户端 TTFT | 见[报告 §6](../calibration-01.md#6-服务端-prompt-计时与前缀复用) |
 

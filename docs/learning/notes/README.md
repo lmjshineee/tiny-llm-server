@@ -25,6 +25,7 @@ measured report. The gap between prediction and observation is the learning outp
 
 - [Qwen2.5-0.5B predictions](calibration-01-prediction.md)
 - [Qwen2.5-0.5B measured report](calibration-01.md)
+- [Simulator vs a real 24-request burst](calibration-02-scheduler.md)
 - [Data and command index](data/README.md)
 
 Rules:

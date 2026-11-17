@@ -294,6 +294,7 @@ class Simulator {
     // remaining prompt, so its intent is an upper bound; clamp to the suffix.
     const prefilled: PrefillIntent[] = []
     let prefillTokens = 0
+    let prefillAttentionPairs = 0
 
     for (const intent of plan.prefill) {
       const request = this.#byId.get(intent.requestId)
@@ -307,6 +308,8 @@ class Simulator {
 
       prefilled.push({ requestId: request.id, tokens })
       prefillTokens += tokens
+      // Attending to the context already held plus the chunk processed here.
+      prefillAttentionPairs += tokens * (request.prefilledTokens + (tokens - 1) / 2)
     }
 
     const decodeTokens = plan.decode.length
@@ -331,12 +334,10 @@ class Simulator {
         request.prefilledTokens + request.outputTokens + (prefillTokensById.get(requestId) ?? 0)
     }
 
-    const latencyMs = estimateStepLatency(
-      this.#config.cost,
-      prefillTokens,
-      decodeTokens,
+    const latencyMs = estimateStepLatency(this.#config.cost, prefillTokens, decodeTokens, {
       decodeContextTokens,
-    )
+      prefillAttentionPairs,
+    })
     const endMs = startMs + latencyMs
 
     if (endMs > this.#config.maxSimTimeMs) {

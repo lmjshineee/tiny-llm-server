@@ -56,8 +56,12 @@ export const COST_PROFILES: readonly CostProfile[] = [
     label: 'Qwen2.5-0.5B Q4_K_M on Apple M5 (single stream, short context)',
     cost: {
       stepOverheadMs: 1.83,
-      prefillBaseMs: 4.6,
-      prefillMsPerToken: 0.126,
+      prefillBaseMs: 2.17,
+      prefillMsPerToken: 0.1217,
+      // Attention pairs: 3.0e-5 ms per (new token × attended token). Two
+      // independent fits agree — a 512-token chunk over a long context, and
+      // whole prompts where the term shows up as T²/2.
+      prefillMsPerAttentionPair: 0.00003,
       decodeBaseMs: 2.67,
       decodeMsPerRequest: 0.086,
       // 0–30k depth sweep: 0.246 ms per 1k KV tokens, fitted through the
@@ -77,7 +81,7 @@ export const COST_PROFILES: readonly CostProfile[] = [
     },
     limitations: [
       'Context cost is linear (0.00023 ms per KV token) and fits the 0–30k depth sweep within 10%, but the measured curve drifts slightly superlinear past 16k.',
-      'Prefill is linear here, but the 8192-token point shows a quadratic attention term (~47% low if extrapolated).',
+      'Prefill attention cost is linear in (new × attended) tokens, and under-predicts prompts below ~100 tokens, where per-call overhead is not proportional to anything.',
       'The roofline cap saturates batching at ~1.3k tok/s (measured batch 8/16/32 within 10%), but the measured decline past batch 16 is not modelled.',
       'Context is charged on the memory side of the roofline, so it becomes free once a batch is compute-bound. That is consistent with the batch data but was not measured at 16k context with batch 16.',
       'Single machine, single model, single quantization, short runs; not a hardware ranking.',

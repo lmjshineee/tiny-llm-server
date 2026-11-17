@@ -6,7 +6,9 @@ const MIN_STEP_MS = 1e-3
 /**
  * Synthetic step-latency model.
  *
- * A prefill step is compute-bound and modelled as linear in prompt tokens.
+ * A prefill step is compute-bound and modelled as linear in prompt tokens, plus
+ * an optional attention term proportional to (new tokens × attended tokens).
+ * That term is what makes a whole prompt superlinear in its own length.
  * A decode step is memory-bandwidth-bound: reading weights is a fixed cost,
  * while each extra sequence only adds a small KV-read/compute cost. This
  * sublinear decode cost is what makes continuous batching attractive.
@@ -25,12 +27,21 @@ const MIN_STEP_MS = 1e-3
  * throughput. Without those fields the model is purely additive, so every
  * report produced by `synthetic-v1` is byte-identical to before the cap existed.
  */
+export interface StepWork {
+  /** KV tokens already held by the sequences decoding in this step. */
+  readonly decodeContextTokens?: number
+  /** New-token × attended-token pairs covered by this step's prefill. */
+  readonly prefillAttentionPairs?: number
+}
+
 export function estimateStepLatency(
   cost: CostModel,
   prefillTokens: number,
   decodeRequests: number,
-  decodeContextTokens = 0,
+  work: StepWork = {},
 ): number {
+  const decodeContextTokens = work.decodeContextTokens ?? 0
+  const prefillAttentionPairs = work.prefillAttentionPairs ?? 0
   if (!Number.isInteger(prefillTokens) || prefillTokens < 0) {
     throw new RangeError(
       `prefillTokens must be a non-negative integer, got ${String(prefillTokens)}`,
@@ -46,12 +57,19 @@ export function estimateStepLatency(
       `decodeContextTokens must be a non-negative integer, got ${String(decodeContextTokens)}`,
     )
   }
+  if (!Number.isFinite(prefillAttentionPairs) || prefillAttentionPairs < 0) {
+    throw new RangeError(
+      `prefillAttentionPairs must be a non-negative finite number, ` +
+        `got ${String(prefillAttentionPairs)}`,
+    )
+  }
   if (prefillTokens === 0 && decodeRequests === 0) return 0
 
   let latencyMs = cost.stepOverheadMs
 
   if (prefillTokens > 0) {
     latencyMs += cost.prefillBaseMs + prefillTokens * cost.prefillMsPerToken
+    latencyMs += prefillAttentionPairs * (cost.prefillMsPerAttentionPair ?? 0)
   }
   if (decodeRequests > 0) {
     // The context term sits on the memory side: it is KV bytes read per step.

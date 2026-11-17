@@ -308,49 +308,53 @@ prefix sharing, and gives the UI a natural visualization unit: a block map.
 
 `src/core/cost-model.ts`
 
-All costs are milliseconds. For a step with `P` prefill tokens and `D` decoding sequences:
+All costs are milliseconds. For a step with `P` prefill tokens, `pairs` attention pairs and `D`
+decoding sequences holding `ctxTokens` KV tokens between them:
 
 ```text
 latency =
     stepOverheadMs
-  + (P > 0 ? prefillBaseMs + P * prefillMsPerToken : 0)
-  + (D > 0 ? decodeBaseMs  + D * decodeMsPerRequest : 0)
+  + (P > 0 ? prefillBaseMs + P * prefillMsPerToken
+             + pairs * prefillMsPerAttentionPair : 0)
+  + (D > 0 ? max( decodeBaseMs + D * decodeMsPerRequest
+                  + ctxTokens * decodeMsPerContextToken ,
+                  D * decodeFlopsPerRequest / decodeFlopsPerSecond ) : 0)
 ```
 
 | Parameter | Default | Rationale |
 | --- | ---: | --- |
 | `stepOverheadMs` | 0.2 | Scheduler/bookkeeping overhead per step. |
 | `prefillBaseMs` | 2.0 | Kernel launch/fixed prefill cost. |
-| `prefillMsPerToken` | 0.35 | Prefill is modelled as compute-bound and linear. |
+| `prefillMsPerToken` | 0.35 | Prefill is compute-bound and linear in new tokens. |
+| `prefillMsPerAttentionPair` | *(unset)* | Optional: cost of one (new token × attended token) pair. |
 | `decodeBaseMs` | 18.0 | Weight read per decode step, roughly constant in batch size. |
 | `decodeMsPerRequest` | 1.2 | Per-sequence KV read/compute; sublinear batching benefit. |
 | `decodeMsPerContextToken` | *(unset)* | Optional: cost of one KV token read per step; makes decode grow with context. |
 | `decodeFlopsPerRequest` | *(unset)* | Optional: FLOPs per sequence per decode step (`≈2 × params`). |
-| `decodeFlopsPerSecond` | *(unset)* | Optional: effective decode-shaped throughput; together with the field above it forms the roofline cap. |
+| `decodeFlopsPerSecond` | *(unset)* | Optional: effective decode-shaped throughput; with the field above it forms the roofline cap. |
+
+Every optional term is zero when unset, so `synthetic-v1` costs the same as before they existed and
+its reports stay byte-identical.
 
 Example: a 16-request decode step costs `0.2 + 18 + 16 × 1.2 = 37.4 ms` for 16 tokens,
 while 16 single-request steps cost `16 × 19.4 = 310.4 ms`. This sublinear decode assumption is
 the main reason continuous batching wins in the simulation.
 
-A decode step may also carry a roofline cap. When a profile sets both `decodeFlopsPerRequest`
-and `decodeFlopsPerSecond`, the decode term becomes
+**Prefill attention pairs.** A prefill chunk of `c` tokens over a context of `k` tokens attends to
+`k + (c-1)/2` tokens per new token, so it costs `c × (k + (c-1)/2)` pairs — about `T²/2` pairs for a
+whole prompt of `T` tokens. This is why an isolated long prompt looks quadratic in its own length
+while a 512-token chunk over a long context grows only linearly. The engine computes the pairs from
+the actual chunk and the request's current context, including prefix-cache hits.
 
-```text
-max( decodeBaseMs + n × decodeMsPerRequest + ctxTokens × decodeMsPerContextToken ,
-     n × decodeFlopsPerRequest / decodeFlopsPerSecond )
-```
-
-`ctxTokens` is the summed KV length of the sequences decoding in this step, passed by the engine;
-the context term sits on the memory side, so a compute-bound batch is not charged twice.
-
-so throughput saturates instead of growing with batch size. The cap is opt-in and unset in
-`measured`-free runs: with both fields absent the model is exactly the additive one above, which
-keeps every `synthetic-v1` report byte-identical.
+**Decode roofline cap.** When a profile sets both `decodeFlopsPerRequest` and
+`decodeFlopsPerSecond`, the decode term is the `max(...)` above instead of memory alone, so
+throughput saturates as the batch grows. The context term sits on the memory side of that max: a
+compute-bound batch is not charged for context twice.
 
 **These values are illustrative, not measurements.** They are chosen to be in a plausible
 order of magnitude for a 7B-class 4-bit model and to make scheduling effects visible. Prefix
-hits do reduce the prefill token count, but the model does not include cache-lookup/hash cost,
-memory-bandwidth contention, attention quadratic effects, network latency, or hardware
+hits do reduce the prefill token count, but the default profile has no attention terms, and no
+profile includes cache-lookup/hash cost, memory-bandwidth contention, network latency, or hardware
 variance. Replace the model with measured traces before drawing performance conclusions.
 
 ### Cost profiles

@@ -89,7 +89,7 @@ describe('cost profiles', () => {
     ]
 
     for (const point of measured) {
-      const predicted = estimateStepLatency(cost, 0, 1, point.context)
+      const predicted = estimateStepLatency(cost, 0, 1, { decodeContextTokens: point.context })
       expectRelative(predicted, point.msPerToken, 0.15)
     }
   })
@@ -112,6 +112,41 @@ describe('cost profiles', () => {
     const shortTpot = run(8).summary.tpotMs.p50 ?? 0
     const longTpot = run(4_000).summary.tpotMs.p50 ?? 0
     expect(longTpot).toBeGreaterThan(shortTpot * 1.15)
+  })
+
+  it('reproduces long-prompt prefill within 10%', () => {
+    const cost = getCostProfile(MEASURED_PROFILE_ID).cost
+    // calibration-01.md: whole-prompt prefill, pairs = T(T-1)/2.
+    const measured = [
+      { prompt: 8_192, ms: 1_969.9 },
+      { prompt: 16_384, ms: 6_019.6 },
+      { prompt: 30_720, ms: 17_769.2 },
+    ]
+
+    for (const point of measured) {
+      const pairs = (point.prompt * (point.prompt - 1)) / 2
+      const predicted = estimateStepLatency(cost, point.prompt, 0, {
+        prefillAttentionPairs: pairs,
+      })
+      expectRelative(predicted, point.ms, 0.1)
+    }
+  })
+
+  it('reproduces a 512-token chunk over a long context within 15%', () => {
+    const cost = getCostProfile(MEASURED_PROFILE_ID).cost
+    // calibration-01.md: pp512 measured at depth 8192/16384/30720.
+    const measured = [
+      { depth: 8_192, ms: 184.9 },
+      { depth: 16_384, ms: 301.3 },
+      { depth: 30_720, ms: 521.1 },
+    ]
+
+    for (const point of measured) {
+      const chunk = 512
+      const pairs = chunk * (point.depth + (chunk - 1) / 2)
+      const predicted = estimateStepLatency(cost, chunk, 0, { prefillAttentionPairs: pairs })
+      expectRelative(predicted, point.ms, 0.15)
+    }
   })
 
   it('records provenance and the known gaps for the measured profile', () => {

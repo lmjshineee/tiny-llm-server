@@ -108,6 +108,14 @@ export interface CostModel {
   readonly prefillBaseMs: number
   /** Compute cost of one prefill token. */
   readonly prefillMsPerToken: number
+  /**
+   * Cost of one attention pair during prefill: a new token attending to one
+   * token already in the KV cache. A chunk of `c` tokens over a context of `k`
+   * costs `c × (k + (c-1)/2)` pairs, so a whole prompt of `T` tokens costs
+   * `T²/2` pairs — which is why this shows up as a quadratic term when prompts
+   * are measured in isolation. Omit for the linear prefill model.
+   */
+  readonly prefillMsPerAttentionPair?: number
   /** Fixed weight-read cost of a decode step (roughly constant in batch size). */
   readonly decodeBaseMs: number
   /** Incremental decode cost of each additional sequence in the batch. */

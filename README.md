@@ -230,9 +230,9 @@ Two cost models exist and a report always names the one it used (`costModelVersi
 | `measured-m5-q4-0.5b` | Five-point fit to Qwen2.5-0.5B Q4_K_M on an Apple M5 (llama.cpp + Metal), single stream, ~1k context | opt-in |
 
 The measured profile is deliberately narrow. Its context term is linear (the measured curve
-drifts slightly superlinear past 16k), its prefill has no quadratic term, and its batching
-ceiling is a flat roofline cap (the measured curve dips past batch 16, which a cap cannot
-express). It is accurate on short single-stream requests and increasingly
+drifts slightly superlinear past 16k), its prefill attention term is a single linear-in-pairs
+coefficient, and its batching ceiling is a flat roofline cap (the measured curve dips past batch
+16, which a cap cannot express). It is accurate on short single-stream requests and increasingly
 optimistic elsewhere. Those gaps are listed in the profile itself
 ([`src/core/cost-profiles.ts`](src/core/cost-profiles.ts)) and were measured, not guessed:
 see [calibration-01.md](docs/learning/notes/calibration-01.md). Reports from different profiles

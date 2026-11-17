@@ -76,7 +76,7 @@ describe('decode roofline cap', () => {
   it('charges context inside the memory term', () => {
     const cost: CostModel = { ...UNCAPPED, decodeMsPerContextToken: 0.001 }
     // 10 sequences at 1000 KV tokens each: +10 ms of memory-side cost.
-    expect(estimateStepLatency(cost, 0, 10, 10_000)).toBeCloseTo(
+    expect(estimateStepLatency(cost, 0, 10, { decodeContextTokens: 10_000 })).toBeCloseTo(
       estimateStepLatency(cost, 0, 10) + 10,
       10,
     )
@@ -84,25 +84,55 @@ describe('decode roofline cap', () => {
     // When the roofline cap makes the step compute-bound, context is not charged
     // twice: memory 1 + 6.4 + 0.1 ms stays below compute 32 ms.
     const capped: CostModel = { ...CAPPED, decodeMsPerContextToken: 1e-7 }
-    const computeBound = estimateStepLatency(capped, 0, 64, 1_000_000)
+    const computeBound = estimateStepLatency(capped, 0, 64, { decodeContextTokens: 1_000_000 })
     expect(computeBound).toBeCloseTo(1 + 64 * 0.5, 6)
 
     // Default profiles have no context term, so this is a no-op for them.
-    expect(estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4, 100_000)).toBeCloseTo(
-      estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4),
-      10,
-    )
+    expect(
+      estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4, { decodeContextTokens: 100_000 }),
+    ).toBeCloseTo(estimateStepLatency(DEFAULT_ENGINE_CONFIG.cost, 0, 4), 10)
   })
 
   it('rejects invalid context arguments and coefficients', () => {
     const cost: CostModel = { ...UNCAPPED, decodeMsPerContextToken: 0.001 }
-    expect(() => estimateStepLatency(cost, 0, 1, -1)).toThrow(RangeError)
-    expect(() => estimateStepLatency(cost, 0, 1, 1.5)).toThrow(RangeError)
+    expect(() => estimateStepLatency(cost, 0, 1, { decodeContextTokens: -1 })).toThrow(RangeError)
+    expect(() => estimateStepLatency(cost, 0, 1, { decodeContextTokens: 1.5 })).toThrow(RangeError)
     expect(() =>
       createEngineConfig({ cost: { ...DEFAULT_ENGINE_CONFIG.cost, decodeMsPerContextToken: -1 } }),
     ).toThrow(ConfigError)
     expect(
       'decodeMsPerContextToken' in createEngineConfig({ cost: DEFAULT_ENGINE_CONFIG.cost }).cost,
+    ).toBe(false)
+  })
+
+  it('charges prefill attention pairs when a profile configures them', () => {
+    const cost: CostModel = { ...UNCAPPED, prefillMsPerAttentionPair: 1e-6 }
+    const plain = estimateStepLatency(UNCAPPED, 512, 0)
+    const withPairs = estimateStepLatency(cost, 512, 0, { prefillAttentionPairs: 130_816 })
+    expect(withPairs - plain).toBeCloseTo(130_816 * 1e-6, 6)
+
+    // Whole prompts cost T²/2 pairs, which is where the quadratic term comes from.
+    const whole = estimateStepLatency(cost, 8_192, 0, { prefillAttentionPairs: 8_192 * 4_095.5 })
+    expect(whole).toBeGreaterThan(plain)
+
+    // Profiles without the coefficient ignore the argument entirely.
+    expect(estimateStepLatency(UNCAPPED, 512, 0, { prefillAttentionPairs: 130_816 })).toBeCloseTo(
+      plain,
+      10,
+    )
+  })
+
+  it('rejects invalid prefill pair arguments and coefficients', () => {
+    expect(() => estimateStepLatency(UNCAPPED, 512, 0, { prefillAttentionPairs: -1 })).toThrow(
+      RangeError,
+    )
+    expect(() =>
+      createEngineConfig({
+        cost: { ...DEFAULT_ENGINE_CONFIG.cost, prefillMsPerAttentionPair: -1 },
+      }),
+    ).toThrow(ConfigError)
+    expect(
+      'prefillMsPerAttentionPair' in createEngineConfig({ cost: DEFAULT_ENGINE_CONFIG.cost }).cost,
     ).toBe(false)
   })
 

@@ -155,6 +155,7 @@
             "decodeBaseMs": { "$ref": "#/definitions/nonNegativeNumber" },
             "decodeMsPerRequest": { "$ref": "#/definitions/nonNegativeNumber" },
             "decodeMsPerContextToken": { "type": "number", "minimum": 0 },
+            "prefillMsPerAttentionPair": { "type": "number", "minimum": 0 },
             "decodeFlopsPerRequest": { "type": "number", "exclusiveMinimum": 0 },
             "decodeFlopsPerSecond": { "type": "number", "exclusiveMinimum": 0 }
           }

@@ -264,7 +264,9 @@ Commits:
 - [x] Context term: `decodeMsPerContextToken` (0.00023 ms per KV token), fitted to the 0–30k depth
       sweep and passed by the engine as the batch's summed KV length; reproduces the measured
       curve within 8%. This is the mechanism prefix caching pays back against.
-- [ ] Quadratic prefill term: long prompts are still under-priced (measured −47% at 8k tokens).
+- [x] Prefill attention term: `prefillMsPerAttentionPair` (3.0e-5 ms per new × attended token),
+      computed by the engine per chunk; reproduces whole-prompt prefill to 30k and 512-token chunks
+      over long context within 7%, and brings engine TTFT(1020) to 147.7 ms vs 150.8 ms measured.
 - [ ] Comparative report: conservative reservation vs prefix-aware admission, with and without
       preemption.
 - [ ] Refresh UI/e2e screenshots and update the cost-model limitations.

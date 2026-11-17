@@ -11,6 +11,7 @@ llama.cpp 0.9.0 build 12110（Metal）。模型：Qwen2.5-0.5B-Instruct GGUF。
 | `tg-depth-q4.json` | decode 随上下文衰减（到 8k） | `llama-bench -m q4 -p 0 -n 128 -d 0,1024,4096,8192 -r 3 -ngl 99 -o json` |
 | `tg-depth-long-q4.json` | 补测到 30k：解码随上下文 | `llama-bench -m q4 -p 0 -n 128 -d 0,4096,8192,16384,30720 -r 3 -ngl 99 -o json` |
 | `pp-long-q4.json` | 长 prompt prefill（16k / 30k） | `llama-bench -m q4 -p 16384,30720 -n 0 -r 2 -ngl 99 -o json` |
+| `pp-at-depth-q4.json` | 512-token chunk 在长上下文上的 prefill | `llama-bench -m q4 -p 512 -n 0 -d 0,8192,16384,30720 -r 3 -ngl 99 -o json` |
 | `tg-q4-cpu.json` / `pp-q4-cpu.json` | CPU 对照（`-ngl 0`） | 同上，去掉 `-ngl 99` 加 `-ngl 0` |
 | `batched-q4.txt` | 批次 1/2/4/8/16，`-c 32768`，**先测、偏慢的一轮** | `llama-batched-bench ... -c 32768 -npp 512 -ntg 128 -npl 1,2,4,8,16` |
 | `batched-q4-32.txt` | 批次 1/8/16/32，`-c 65536`，**报告采用的一轮** | 同上，`-c 65536 -npl 1,8,16,32` |

@@ -70,6 +70,9 @@ export function validateEngineConfig(config: EngineConfig): void {
   if (cost.decodeMsPerContextToken !== undefined) {
     assertNonNegativeFinite(cost.decodeMsPerContextToken, 'config.cost.decodeMsPerContextToken')
   }
+  if (cost.prefillMsPerAttentionPair !== undefined) {
+    assertNonNegativeFinite(cost.prefillMsPerAttentionPair, 'config.cost.prefillMsPerAttentionPair')
+  }
 
   const { decodeFlopsPerRequest, decodeFlopsPerSecond } = cost
   if (decodeFlopsPerRequest !== undefined || decodeFlopsPerSecond !== undefined) {
@@ -99,7 +102,7 @@ function rooflineOverrides(
 }
 
 /** Copy an optional number only when it is configured. */
-function optionalNumber<Key extends 'decodeMsPerContextToken'>(
+function optionalNumber<Key extends 'decodeMsPerContextToken' | 'prefillMsPerAttentionPair'>(
   key: Key,
   value: number | undefined,
 ): Pick<CostModel, Key> | Record<string, never> {
@@ -140,6 +143,10 @@ export function createEngineConfig(overrides: DeepPartial<EngineConfig> = {}): E
       ...optionalNumber(
         'decodeMsPerContextToken',
         overrides.cost?.decodeMsPerContextToken ?? base.cost.decodeMsPerContextToken,
+      ),
+      ...optionalNumber(
+        'prefillMsPerAttentionPair',
+        overrides.cost?.prefillMsPerAttentionPair ?? base.cost.prefillMsPerAttentionPair,
       ),
     },
     maxSteps: overrides.maxSteps ?? base.maxSteps,
